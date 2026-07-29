@@ -1,0 +1,4 @@
+services:
+  web:
+    extra_hosts:
+      - "bwwest.ddev.site:host-gateway"

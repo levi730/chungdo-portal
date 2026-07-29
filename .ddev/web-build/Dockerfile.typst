@@ -1,0 +1,19 @@
+# Install the Typst CLI (for tournament registration-card PDFs) and Arial-metric
+# fonts so rendering matches the macOS/host output.
+ARG TYPST_VERSION=v0.14.2
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      arm64) target="aarch64-unknown-linux-musl" ;; \
+      amd64) target="x86_64-unknown-linux-musl" ;; \
+      *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/typst/typst/releases/download/${TYPST_VERSION}/typst-${target}.tar.xz" -o /tmp/typst.tar.xz; \
+    tar -xf /tmp/typst.tar.xz -C /tmp; \
+    install -m 0755 "/tmp/typst-${target}/typst" /usr/local/bin/typst; \
+    rm -rf /tmp/typst*; \
+    typst --version
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*

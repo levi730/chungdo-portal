@@ -1,0 +1,23 @@
+/node_modules
+/public/hot
+/public/storage
+/public/build
+/storage/*.key
+/vendor
+.env
+.env.backup
+/.phpunit.cache
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/.idea
+/.vscode
+.DS_Store
+*/.DS_Store
+/public/.cache
+
+# Wallet signing material — inject via base64 env, never commit
+resources/certs/*.p12
+*google*wallet*key*.json

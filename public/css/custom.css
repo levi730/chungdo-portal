@@ -1,0 +1,41 @@
+.navbar-brand-image {
+    height: 4rem;
+}
+
+span.kick {
+    display: none;
+}
+
+span.punch {
+    color: #0d6efd;
+}
+
+#navbar-menu .event-past {
+    text-decoration: line-through;
+    color: rgba(133,133,133,1);
+}
+
+/*
+ * rappasoft/laravel-livewire-tables Bootstrap icon-sizing helpers. The package
+ * ships these but its CSS isn't otherwise loaded here, so without them the
+ * search "clear" (x) icon and similar SVGs render at full size and break their
+ * layout. Values copied from the package's bootstrap-custom.css.
+ */
+.laravel-livewire-tables-cursor { cursor: pointer; }
+.laravel-livewire-tables-btn-tiny { width: .5em; height: .5em; }
+.laravel-livewire-tables-btn-smaller { width: 1em; height: 1em; }
+.laravel-livewire-tables-btn-small { width: 1.2em; height: 1.2em; }
+.laravel-livewire-tables-btn-md { width: 1.3em; height: 1.3em; }
+.laravel-livewire-tables-btn-lg { width: 1.4em; height: 1.4em; }
+
+/*
+ * The search field carries a leftover Tailwind `w-full` (width:100%) class,
+ * which fills the Bootstrap input-group and wraps the "clear" (x) button onto
+ * the next line. Restore Bootstrap's input-group field sizing so the button
+ * sits inline. Scoped to .form-control.w-full, which only the search input has.
+ */
+.input-group > .form-control.w-full {
+    width: 1% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}

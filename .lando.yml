@@ -1,0 +1,61 @@
+name: chungdo
+recipe: laravel
+config:
+  webroot: public/
+  via: nginx
+  php: '8.2'
+  database: 'mariadb:10.5'
+  config:
+    php: .lando/appserver/php.ini
+services:
+  appserver:
+    extras:
+      - >-
+        [ -f /usr/bin/wkhtmltopdf ] || ( apt-get update -y && apt-get install
+        xvfb pdftk fontconfig libxrender1 -y)
+      - >-
+        [ -f /usr/bin/wkhtmltopdf ] || ( wget -nc
+        https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.buster_arm64.deb
+        -P /tmp )
+      - >-
+        [ -e /usr/bin/wkhtmltopdf ] || ( dpkg -i
+        /tmp/wkhtmltox_0.12.6-1.buster_arm64.deb )
+      - >-
+        [ -f /usr/bin/wkhtmltopdf ] || ( ln -s /usr/local/bin/wkhtmltopdf
+        /usr/bin/wkhtmltopdf )
+    overrides:
+      volumes:
+        - '.lando/appserver/ImageMagick_policy.xml:/etc/ImageMagick-6/policy.xml'
+  database:
+    portforward: 3307
+    run:
+      - >-
+        mysql -uroot -e "CREATE DATABASE laravel_testing; GRANT ALL PRIVILEGES ON *.* TO 'laravel'@'%';FLUSH
+        PRIVILEGES;" laravel
+  mailhog:
+    type: 'mailhog:v1.0.0'
+    portforward: true
+    hogfrom:
+      - appserver
+  node:
+    type: 'node:18'
+    scanner: false
+    ports:
+      - '3009:3009'
+    build:
+      - npm install
+tooling:
+  dev:
+    service: node
+    cmd: npm run dev
+  build:
+    service: node
+    cmd: npm run build
+  npm:
+    service: node
+    cmd: npm
+  pest:
+    service: appserver
+    cmd: ./vendor/bin/pest
+dbgui:
+  tool: tableplus
