@@ -1,10 +1,11 @@
 {
-    "name": "laravel/laravel",
+    "name": "chungdo/portal",
     "type": "project",
-    "description": "The Laravel Framework.",
+    "description": "Chung Do Association portal: membership, tournament registration, payments, and mobile check-in.",
     "keywords": [
-        "framework",
-        "laravel"
+        "laravel",
+        "tournament",
+        "martial-arts"
     ],
     "repositories": [
         {
@@ -16,7 +17,7 @@
             "url": "https://github.com/laravel-shift/sendportal-core.git"
         }
     ],
-    "license": "MIT",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "anhskohbo/no-captcha": "^3.6",

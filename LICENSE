@@ -1,0 +1,31 @@
+Copyright (c) 2026 Mike Lester. All rights reserved.
+
+This repository is made available for the sole purpose of demonstration,
+evaluation, and portfolio review. It contains proprietary software developed
+for the Chung Do Association.
+
+You MAY:
+  - View and read the source code for the purpose of evaluating the author's
+    work (e.g., as part of a hiring or review process).
+
+You MAY NOT, without the prior written permission of the copyright holder:
+  - Copy, reproduce, or redistribute any part of this code;
+  - Use the code, in whole or in part, in any product or service;
+  - Modify, adapt, or create derivative works from it;
+  - Use it for any commercial or production purpose.
+
+No license, express or implied, is granted to any patent, trademark, trade
+secret, or other intellectual property right, except the limited right to
+view the code as described above.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Third-party components (PHP packages under vendor/, JavaScript packages under
+node_modules/, and other bundled libraries) remain licensed under their
+respective original licenses.
