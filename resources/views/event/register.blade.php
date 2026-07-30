@@ -44,15 +44,6 @@
                     </div>
                 @endif
 
-                {{--
-                idk how this was supposed to work.
-                @if(count($already_reg) > 0)
-                <div>
-                    <a href="/event/{{ $event->slug }}/register/complete" class="btn btn-primary">Check Registration Status</a>
-                </div>
-                @endif
-                --}}
-
             </div>
 
             <div class="col-sm-6 bg-muted-lt order-1 order-sm-2 mb-3">
