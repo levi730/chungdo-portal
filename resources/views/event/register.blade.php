@@ -36,6 +36,14 @@
             <div class="col-sm-6 order-2 order-sm-1 markdown-content">
                 @md($event->details)
 
+                @php($mealMenu = optional($event->addon('meal_ticket'))->setting('description'))
+                @if($event->hasAddon('meal_ticket') && trim((string) $mealMenu) !== '')
+                    <div class="mt-4">
+                        <h3>{{ optional($event->addon('meal_ticket'))->setting('label', 'Meal') }} Menu</h3>
+                        @md($mealMenu)
+                    </div>
+                @endif
+
                 {{--
                 idk how this was supposed to work.
                 @if(count($already_reg) > 0)
@@ -244,32 +252,53 @@
                             </tfoot>
                         </table>
 
-                        @if(count($already_reg) > 0 && $event->require_ticket)
-                            @php($appleWallet = \App\Services\Wallet\AppleWalletPass::isConfigured())
-                            @php($googleWallet = \App\Services\Wallet\GoogleWalletPass::isConfigured())
-                            <div class="mt-3">
-                                <a id="addToWallet"></a>
-                                <p class="mb-1">{{ count($already_reg) }} completed registration(s).</p>
-                                @if($appleWallet || $googleWallet)
-                                    <p class="mb-2 small text-muted">Add your check-in QR code to your phone's wallet:</p>
-                                    @if($appleWallet)
-                                        <a href="{{ route('event.pass.apple', $event->slug) }}" class="d-inline-block me-2 align-middle">
-                                            <img src="/img/Apple_Wallet.svg" alt="Add to Apple Wallet" style="height:48px">
-                                        </a>
-                                    @endif
-                                    @if($googleWallet)
-                                        <a href="{{ route('event.pass.google', $event->slug) }}" class="d-inline-block align-middle">
-                                            <img src="/img/Google_Wallet.svg" alt="Save to Google Wallet" style="height:48px">
-                                        </a>
-                                    @endif
-                                    <p class="text-muted small mt-1 mb-0">(Come back anytime before the event to add completed registrations to your wallet.)</p>
-                                @else
-                                    <p class="text-muted small mb-0">Your check-in QR code is in your registration confirmation email.</p>
-                                @endif
-                            </div>
-                        @endif
                     </div>
                 </div>
+
+                {{-- Tickets & passes for the household's completed registrations.
+                     Driven by persisted data ($already_reg / $mealVoucherCount) for
+                     the whole family, NOT the live form switches — so it shows
+                     whenever passes/meal tickets exist, regardless of what's toggled. --}}
+                @php($appleWallet = \App\Services\Wallet\AppleWalletPass::isConfigured())
+                @php($googleWallet = \App\Services\Wallet\GoogleWalletPass::isConfigured())
+                @if((count($already_reg) > 0 && $event->require_ticket) || ($mealVoucherCount ?? 0) > 0)
+                    <div class="card mb-3">
+                        <div class="card-header"><h3 class="card-title mb-0">Your tickets &amp; passes</h3></div>
+                        <div class="card-body">
+                            @if(count($already_reg) > 0 && $event->require_ticket)
+                                <div class="mb-3">
+                                    <a id="addToWallet"></a>
+                                    <p class="mb-1">{{ count($already_reg) }} completed registration(s).</p>
+                                    @if($appleWallet || $googleWallet)
+                                        <p class="mb-2 small text-muted">Add your check-in QR code to your phone's wallet:</p>
+                                        @if($appleWallet)
+                                            <a href="{{ route('event.pass.apple', $event->slug) }}" class="d-inline-block me-2 align-middle">
+                                                <img src="/img/Apple_Wallet.svg" alt="Add to Apple Wallet" style="height:48px">
+                                            </a>
+                                        @endif
+                                        @if($googleWallet)
+                                            <a href="{{ route('event.pass.google', $event->slug) }}" class="d-inline-block align-middle">
+                                                <img src="/img/Google_Wallet.svg" alt="Save to Google Wallet" style="height:48px">
+                                            </a>
+                                        @endif
+                                        <p class="text-muted small mt-1 mb-0">(Come back anytime before the event to add completed registrations to your wallet.)</p>
+                                    @else
+                                        <p class="text-muted small mb-0">Your check-in QR code is in your registration confirmation email.</p>
+                                    @endif
+                                </div>
+                            @endif
+
+                            @if(($mealVoucherCount ?? 0) > 0)
+                                <div>
+                                    <p class="mb-2 small text-muted">You purchased {{ $mealVoucherCount }} {{ \Illuminate\Support\Str::plural('meal', $mealVoucherCount) }} for your family. Print your meal ticket and bring it to redeem:</p>
+                                    <a href="{{ route('event.meal-voucher', $event->slug) }}" class="btn btn-outline-primary">
+                                        Download meal ticket (PDF)
+                                    </a>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endif
 
                 {{-- Section 4: Payment --}}
                 <div class="card mb-3" x-show="registered.length > 0" x-cloak>

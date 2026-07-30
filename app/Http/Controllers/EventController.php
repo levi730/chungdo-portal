@@ -265,7 +265,15 @@ class EventController extends Controller
         }
         $adjustCurrent = collect($adjustCurrent);
 
-        return view('event.register', compact('event', 'intent', 'allRanks', 'tshirts', 'participation', 'ranks', 'guests', 'meals', 'mealPrice', 'regFee', 'already_reg', 'registrations', 'registeredRegs', 'adjustCurrent', 'canEditAddons'));
+        // Total meals this household has purchased for the event — drives the
+        // "Download meal ticket" button. Computed from the already-loaded
+        // registrations (no extra query).
+        $mealVoucherCount = $registeredRegs
+            ->flatMap(fn ($r) => $r->addonAnswers)
+            ->where('type', 'meal_ticket')
+            ->reduce(fn ($c, $a) => $c + ($a->selected ? 1 : 0) + (int) $a->quantity, 0);
+
+        return view('event.register', compact('event', 'intent', 'allRanks', 'tshirts', 'participation', 'ranks', 'guests', 'meals', 'mealPrice', 'regFee', 'already_reg', 'registrations', 'registeredRegs', 'adjustCurrent', 'canEditAddons', 'mealVoucherCount'));
     }
 
     public function registerProcess(Request $request, $slug = null)
@@ -1056,6 +1064,25 @@ class EventController extends Controller
         }
 
         return redirect()->away($url);
+    }
+
+    /**
+     * Download the printable meal-ticket voucher for the signed-in user's
+     * household for this event. Regenerated on demand so it always reflects the
+     * current meal quantity. 404s when the household has no meals.
+     */
+    public function mealVoucher($slug)
+    {
+        $event = Event::where('slug', $slug)->firstOrFail();
+
+        $pdf = (new \App\Services\MealVoucherPdf())->forHousehold($event, auth()->user());
+        if (! $pdf) {
+            abort(404, 'You have no meal tickets for this event.');
+        }
+
+        return response()->download($pdf, Str::slug($event->name).'-meal-ticket.pdf', [
+            'Content-Type' => 'application/pdf',
+        ])->deleteFileAfterSend();
     }
 
     public function arrangeDivisions(Request $request, $slug)

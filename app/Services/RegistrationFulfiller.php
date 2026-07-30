@@ -164,7 +164,7 @@ class RegistrationFulfiller
 
         $recipient = User::find($pending->registering_user_id);
         if ($recipient) {
-            Mail::to($recipient)->send(new EventRegistered($event, $regUsers, $tmpFile));
+            Mail::to($recipient)->send(new EventRegistered($event, $regUsers, $tmpFile, $recipient));
         }
     }
 }

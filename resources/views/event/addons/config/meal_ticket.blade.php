@@ -16,10 +16,13 @@
                name="settings[{{ $addon->type }}][label]"
                value="{{ $addon->setting('label', 'Meal') }}">
     </div>
-    <div class="col-md-4 mb-3">
-        <label class="form-label">Description <span class="text-muted">(optional)</span></label>
-        <input type="text" class="form-control"
-               name="settings[{{ $addon->type }}][description]"
-               value="{{ $addon->setting('description', '') }}">
+</div>
+<div class="row">
+    <div class="col-12 mb-3">
+        <label class="form-label">Menu <span class="text-muted">(optional, shown on the printable meal ticket)</span></label>
+        <textarea class="form-control" rows="6"
+                  placeholder="# Choose one entree&#10;- Grilled chicken plate&#10;- Pulled pork sandwich&#10;- Veggie stir-fry&#10;&#10;Includes a side and a drink."
+                  name="settings[{{ $addon->type }}][description]">{{ $addon->setting('description', '') }}</textarea>
+        <small class="form-hint">Markdown-ish: lines starting with <code>#</code> are headings, <code>-</code> or <code>*</code> become bullets.</small>
     </div>
 </div>

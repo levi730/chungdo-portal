@@ -155,6 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/event/{slug}/pass/apple', [\App\Http\Controllers\EventController::class, 'appleWalletPass'])->name('event.pass.apple');
     Route::get('/event/{slug}/pass/google', [\App\Http\Controllers\EventController::class, 'googleWalletPass'])->name('event.pass.google');
+    Route::get('/event/{slug}/meal-voucher', [\App\Http\Controllers\EventController::class, 'mealVoucher'])->name('event.meal-voucher');
 
     Route::get('/users', function () {
         return view('users.index');
