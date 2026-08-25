@@ -34,29 +34,6 @@ class ZulipClient
         return $this->get('/users', ['include_custom_profile_fields' => 'false'])['members'] ?? [];
     }
 
-    /** Create a user; returns the new Zulip user_id. */
-    public function createUser(string $email, string $fullName, string $password): int
-    {
-        $data = $this->post('/users', [
-            'email' => $email,
-            'full_name' => $fullName,
-            'password' => $password,
-        ]);
-
-        // Recent Zulip returns user_id directly; fall back to a lookup otherwise.
-        if (isset($data['user_id'])) {
-            return (int) $data['user_id'];
-        }
-
-        foreach ($this->getUsers() as $u) {
-            if (strcasecmp($u['delivery_email'] ?? $u['email'] ?? '', $email) === 0) {
-                return (int) $u['user_id'];
-            }
-        }
-
-        throw new RuntimeException("Created Zulip user {$email} but could not resolve their id.");
-    }
-
     /** Custom profile fields: [ ['id'=>, 'name'=>, ...], ... ] */
     public function getProfileFields(): array
     {

@@ -4,13 +4,17 @@ namespace App\Services\Zulip;
 
 use App\Models\User;
 use App\Services\ZulipGroupResolver;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
  * Pushes the portal's data to Zulip via the REST API for users flagged with
- * sync_to_zulip: creates missing accounts, sets the belt-rank custom profile
- * field, and reconciles managed user-group memberships. Returns a summary.
+ * sync_to_zulip: sets the belt-rank custom profile field and reconciles managed
+ * user-group memberships. Returns a summary.
+ *
+ * Only users who already exist in Zulip are touched. Accounts are never
+ * pre-created here — a Zulip account is provisioned when the user first logs in
+ * via SSO; users not yet in Zulip are reported as unmatched and picked up on a
+ * later run once they have logged in.
  *
  * This is the stopgap until Zulip 13.0's native OIDC attribute sync ships
  * (see docs/zulip-13-oidc-sync.md).
@@ -54,20 +58,18 @@ class ZulipSyncService
 
         $beltField = $this->beltRankField();
 
-        // 1) Ensure users exist, then set belt rank. Build email->id as we go.
+        // 1) Set belt rank for users who already exist in Zulip. We never
+        // pre-create accounts here: a Zulip account is provisioned when the user
+        // first logs in via SSO. Users not yet in Zulip are left for the group
+        // reconciliation step to record as unmatched.
         foreach ($eligible as $user) {
             $email = strtolower($user->email);
 
-            try {
-                if (! isset($byEmail[$email])) {
-                    $byEmail[$email] = $this->zulip->createUser(
-                        $user->email,
-                        $user->full_name,
-                        Str::password(40),
-                    );
-                    $summary['created'][] = $user->email;
-                }
+            if (! isset($byEmail[$email])) {
+                continue;
+            }
 
+            try {
                 if ($beltField && $user->rank?->rank) {
                     $value = $this->beltRankValue($beltField, $user->rank->rank);
 
