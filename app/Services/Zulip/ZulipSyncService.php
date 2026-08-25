@@ -17,6 +17,9 @@ use Throwable;
  */
 class ZulipSyncService
 {
+    /** Zulip custom-profile-field type for "list of options" (SELECT). */
+    private const ZULIP_FIELD_SELECT = 3;
+
     public function __construct(
         private ZulipClient $zulip,
         private ZulipGroupResolver $groups,
@@ -49,7 +52,7 @@ class ZulipSyncService
             }
         }
 
-        $beltFieldId = $this->beltRankFieldId();
+        $beltField = $this->beltRankField();
 
         // 1) Ensure users exist, then set belt rank. Build email->id as we go.
         foreach ($eligible as $user) {
@@ -65,9 +68,15 @@ class ZulipSyncService
                     $summary['created'][] = $user->email;
                 }
 
-                if ($beltFieldId && $user->rank?->rank) {
-                    $this->zulip->setUserProfileField($byEmail[$email], $beltFieldId, $user->rank->rank);
-                    $summary['belt_rank_updated']++;
+                if ($beltField && $user->rank?->rank) {
+                    $value = $this->beltRankValue($beltField, $user->rank->rank);
+
+                    if ($value === null) {
+                        $summary['errors'][] = "{$user->email}: no Zulip 'Belt rank' choice matches '{$user->rank->rank}'.";
+                    } else {
+                        $this->zulip->setUserProfileField($byEmail[$email], (int) $beltField['id'], $value);
+                        $summary['belt_rank_updated']++;
+                    }
                 }
             } catch (Throwable $e) {
                 $summary['errors'][] = "{$user->email}: {$e->getMessage()}";
@@ -138,18 +147,42 @@ class ZulipSyncService
         }
     }
 
-    private function beltRankFieldId(): ?int
+    private function beltRankField(): ?array
     {
         $name = config('services.zulip.belt_rank_field', 'Belt rank');
 
         try {
             foreach ($this->zulip->getProfileFields() as $field) {
                 if (($field['name'] ?? null) === $name) {
-                    return (int) $field['id'];
+                    return $field;
                 }
             }
         } catch (Throwable $e) {
             // fall through; belt rank just won't be synced this run
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the value to send for a user's belt rank. Zulip "list of options"
+     * (SELECT) fields validate against each choice's internal key, not its
+     * label, so translate the portal's rank label to that key. Other field
+     * types (e.g. short text) take the label verbatim. Returns null when a
+     * SELECT field has no choice whose text matches the rank.
+     */
+    private function beltRankValue(array $field, string $rank): ?string
+    {
+        if ((int) ($field['type'] ?? 0) !== self::ZULIP_FIELD_SELECT) {
+            return $rank;
+        }
+
+        // field_data is a JSON map of key => ['text' => label, 'order' => n].
+        $choices = json_decode($field['field_data'] ?? '', true) ?: [];
+        foreach ($choices as $key => $choice) {
+            if (($choice['text'] ?? null) === $rank) {
+                return (string) $key;
+            }
         }
 
         return null;
