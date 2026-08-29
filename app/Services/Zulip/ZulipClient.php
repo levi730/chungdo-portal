@@ -28,10 +28,17 @@ class ZulipClient
         return filled($this->site) && filled($this->botEmail) && filled($this->botApiKey);
     }
 
-    /** All (human) users: [ ['user_id'=>, 'email'=>, 'delivery_email'=>, ...], ... ] */
-    public function getUsers(): array
+    /**
+     * All users: [ ['user_id'=>, 'email'=>, 'delivery_email'=>, ...], ... ].
+     * With $withProfileFields each member also carries 'profile_data' (custom
+     * profile field id => ['value'=>...]), which the sync uses to skip writes
+     * for values that are already correct.
+     */
+    public function getUsers(bool $withProfileFields = false): array
     {
-        return $this->get('/users', ['include_custom_profile_fields' => 'false'])['members'] ?? [];
+        return $this->get('/users', [
+            'include_custom_profile_fields' => $withProfileFields ? 'true' : 'false',
+        ])['members'] ?? [];
     }
 
     /** Custom profile fields: [ ['id'=>, 'name'=>, ...], ... ] */

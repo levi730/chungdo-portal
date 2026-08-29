@@ -31,7 +31,7 @@
                                     Last run {{ $lastSync['finished_at'] ?? '?' }} —
                                     @if (($lastSync['ok'] ?? false))
                                         {{ $lastSync['eligible'] ?? 0 }} eligible,
-                                        {{ count($lastSync['created'] ?? []) }} created,
+                                        {{ count($lastSync['unmatched'] ?? []) }} not in Zulip yet,
                                         {{ $lastSync['belt_rank_updated'] ?? 0 }} belt ranks,
                                         {{ count($lastSync['groups'] ?? []) }} groups changed.
                                         @if (! empty($lastSync['errors']))
