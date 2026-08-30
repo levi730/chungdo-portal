@@ -53,17 +53,6 @@
     </div>
 </form>
 
-<div class="card card-md mt-5">
-    <div class="card-body">
-        <a href="/project-united">
-            <img src="/img/2025/project_united/ProjectUnitedDesign_card.jpg" alt="Project United" /><br>
-            <h2 class="text-center">Project United</h2>
-            <p class="text-center">Buy T-Shirts and Donate Here!</p>
-        </a>
-
-    </div>
-</div>
-
 @if(Route::has('register'))
 <div class="text-center text-muted mt-3 mb-4">
     <a href="{{ route('register') }}" tabindex="-1">{{ __('auth.createaccount') }}</a>

@@ -49,20 +49,6 @@
             </div>
             @endforeach
 
-            <div class="card">
-                <div class="card-img-top" style="height: 150px; background-size: cover; background-position: center; background-image: url(/img/2025/project_united/ProjectUnitedDesign_card.jpg);"></div>
-                <div class="card-body">
-                    <h3 class="card-title">Project United</h3>
-                    <p>Join us as we unite and lend our support to Miss Tammy in her recovery.</p>
-                    <p><b>NEW!</b> Check out the new Project United hoodies!</p>
-                </div>
-                <div class="card-footer">
-                    <div class="d-flex">
-                        <a href="/project-united" class="btn btn-primary ms-auto">Details</a>
-                    </div>
-                </div>
-            </div>
-
 
             <a href="https://linktr.ee/chungdotkd" target="_blank"><div class="card mt-5">
                 <!-- Photo -->

@@ -34,9 +34,4 @@ class GeneralController extends Controller
         return 'OK';
 
     }
-
-    public function projectUnited(Request $request)
-    {
-        return Inertia::render('General/ProjectUnited', ['foo' => 'bar']);
-    }
 }

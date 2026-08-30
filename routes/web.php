@@ -36,14 +36,9 @@ Route::get('/glide/{path}', [\App\Http\Controllers\ImageController::class, 'show
 
 Route::get('/first-visit', [\App\Http\Controllers\GeneralController::class, 'firstVisit'])->name('first-visit');
 
-Route::get('/project-united', [\App\Http\Controllers\ProjectUnitedController::class, 'index'])->name('project-united');
-Route::post('/project-united/donate', [\App\Http\Controllers\ProjectUnitedController::class, 'processDonation'])->name('project-united-donate');
-Route::get('/project-united/donate/success', [\App\Http\Controllers\ProjectUnitedController::class, 'donationSuccess'])->name('project-united-donate-success');
-Route::get('/project-united/donate/cancel', [\App\Http\Controllers\ProjectUnitedController::class, 'donationCancel'])->name('project-united-donate-cancel');
-Route::post('/project-united/tshirt', [\App\Http\Controllers\ProjectUnitedController::class, 'processTshirt'])->name('project-united-tshirt');
-Route::post('/project-united/hoodie', [\App\Http\Controllers\ProjectUnitedController::class, 'processHoodie'])->name('project-united-hoodie');
-Route::get('/project-united/tshirt/success', [\App\Http\Controllers\ProjectUnitedController::class, 'tshirtSuccess'])->name('project-united-tshirt-success');
-Route::get('/project-united/tshirt/cancel', [\App\Http\Controllers\ProjectUnitedController::class, 'tshirtCancel'])->name('project-united-tshirt-cancel');
+// Project United (donations / t-shirts / hoodies) was retired in 2026. The
+// purchase routes are gone; the admin reports below remain because the
+// transactions are financial records. See docs/project-united-retirement.md.
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
