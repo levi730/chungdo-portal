@@ -142,3 +142,35 @@ Anything recognized-but-not-ours is acknowledged with 200. Stripe retries
 non-2xx responses for days and disables endpoints with sustained failures, so
 returning an error for an event we can never process would eventually take the
 endpoint down. Do not "fix" an unhandled event type by returning 400.
+
+## Multiple Stripe accounts
+
+Each event names the Stripe account its money lands in, in
+`events.stripe_account` — a key in `config('services.stripe.accounts')`.
+New events default to `association`; existing events were backfilled to it.
+
+`App\Services\Stripe\StripeAccounts` is the only place credentials are read.
+**Never call `config('services.stripe.secret')` for event money** — that
+constant is the association's and would silently charge the wrong account. Use
+`secretForEvent($event)` / `publishableKeyForEvent($event)` instead.
+
+The publishable key must match the account the SetupIntent and PaymentIntent
+were created on, so it is passed from the server to the page (`$stripeKey` in
+`event/register.blade.php`, the `stripe_key` prop in `RegForm.vue`) rather than
+baked in at build time from `VITE_STRIPE_KEY`.
+
+Stripe customer ids do not cross accounts. Cashier's `users.stripe_id` is only
+valid on the association's account, so customers are tracked per account in
+`stripe_customers` and resolved through
+`App\Services\Stripe\StripeCustomerResolver`. Association rows are seeded
+lazily from `users.stripe_id`, so existing customers carry over.
+
+The account is locked once an event has taken a payment: refunds must be issued
+on the account that took the charge. The lock is enforced in three places — the
+select is disabled in the form, `EventRequest::withValidator()` rejects a
+change, and `EventAdminController::fill()` won't overwrite it.
+
+One webhook URL serves every account, so `StripeWebhookController` checks the
+signature against each configured signing secret until one verifies. Register
+the same endpoint URL in each Stripe account and put its signing secret in that
+account's `*_WEBHOOK_SECRET`.

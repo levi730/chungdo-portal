@@ -8,6 +8,8 @@ use App\Models\AddonChangeRequest;
 use App\Models\EventRegistration;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Stripe\StripeAccounts;
+use App\Services\Stripe\StripeCustomerResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -111,14 +113,18 @@ class AddonAdjustmentService
         ]);
 
         try {
-            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-            $payer->createOrGetStripeCustomer();
-            $payer->updateDefaultPaymentMethod($paymentMethod);
+            // Adjustments are charged on the same Stripe account as the event's
+            // original registration payments.
+            $stripeAccount = app(StripeAccounts::class)->forEvent($registration->event);
+            \Stripe\Stripe::setApiKey(app(StripeAccounts::class)->secret($stripeAccount));
+
+            $customerId = app(StripeCustomerResolver::class)
+                ->resolve($payer, $stripeAccount, $paymentMethod);
 
             $paymentIntent = \Stripe\PaymentIntent::create([
                 'amount' => (int) round($amount * 100),
                 'currency' => 'usd',
-                'customer' => $payer->stripe_id,
+                'customer' => $customerId,
                 'payment_method' => $paymentMethod,
                 'payment_method_types' => ['card'],
                 'confirm' => true,
@@ -174,7 +180,9 @@ class AddonAdjustmentService
             return false;
         }
 
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        \Stripe\Stripe::setApiKey(
+            app(StripeAccounts::class)->secretForEvent($request->registration?->event)
+        );
         $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentIntentId);
         if ($paymentIntent->status !== 'succeeded') {
             return false;

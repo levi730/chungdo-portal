@@ -7,6 +7,7 @@ use App\Models\AddonChangeRequest;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\User;
+use App\Services\Stripe\StripeAccounts;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,13 +19,16 @@ use Illuminate\Support\Facades\DB;
  */
 class RefundApprover
 {
-    /** @var callable(string, int): string returns the Stripe refund id */
+    /** @var callable(string, int, ?string): string returns the Stripe refund id */
     private $refunder;
 
     public function __construct(?callable $refunder = null)
     {
-        $this->refunder = $refunder ?? function (string $paymentIntentId, int $amountCents): string {
-            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+        // The third argument is the event's Stripe account slug: a refund must
+        // be issued on the account that took the charge, so it cannot use the
+        // association's key unconditionally.
+        $this->refunder = $refunder ?? function (string $paymentIntentId, int $amountCents, ?string $account = null): string {
+            \Stripe\Stripe::setApiKey(app(StripeAccounts::class)->secret($account));
             $refund = \Stripe\Refund::create([
                 'payment_intent' => $paymentIntentId,
                 'amount' => $amountCents,
@@ -48,7 +52,11 @@ class RefundApprover
         $refundId = null;
         if ($amount > 0 && $request->stripe_payment_intent_id) {
             // Throws on failure — the request stays pending, nothing applied.
-            $refundId = ($this->refunder)($request->stripe_payment_intent_id, (int) round($amount * 100));
+            $refundId = ($this->refunder)(
+                $request->stripe_payment_intent_id,
+                (int) round($amount * 100),
+                app(StripeAccounts::class)->forEvent($request->event),
+            );
         }
 
         DB::transaction(function () use ($request, $amount, $admin, $note, $refundId) {

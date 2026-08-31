@@ -68,9 +68,6 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { loadStripe } from '@stripe/stripe-js';
 
-// Replace with your Stripe public key
-const stripePublicKey = import.meta.env.VITE_STRIPE_KEY;
-
 const successMsg = ref(null);
 const errMsg = ref(null);
 
@@ -89,7 +86,11 @@ const props = defineProps({
 })
 
 onMounted(async () => {
-    stripe.value = await loadStripe(stripePublicKey);
+    // The publishable key comes from the server, because it must match the
+    // Stripe account this event's PaymentIntent was created on. The build-time
+    // VITE_STRIPE_KEY is the association's and would be wrong for an event
+    // routed elsewhere. Fall back to it only if the prop is missing.
+    stripe.value = await loadStripe(props.stripe_key || import.meta.env.VITE_STRIPE_KEY);
     elements.value = stripe.value.elements();
 
     // Create separate card fields

@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\PendingEventRegistration;
 use App\Services\RegistrationFulfiller;
+use App\Services\Stripe\StripeAccounts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 use Stripe\Webhook;
 
 /**
- * Receives Stripe events for this account.
+ * Receives Stripe events. One URL serves every Stripe account the portal
+ * transacts on, so the signature is checked against each configured signing
+ * secret until one verifies.
  *
  * Only a failed signature check is answered with a 4xx. Anything the portal
  * recognizes but has no work for — another integration's Checkout Session, a
@@ -25,12 +28,22 @@ class StripeWebhookController extends Controller
     {
         $payload = $request->getContent();
         $sig_header = $request->header('Stripe-Signature');
-        $secret = config('services.stripe.webhook_secret');
 
-        try {
-            $event = Webhook::constructEvent($payload, $sig_header, $secret);
-        } catch (\Exception $e) {
-            return response('Webhook error: ' . $e->getMessage(), 400);
+        $event = null;
+        $lastError = 'no Stripe webhook signing secret is configured';
+
+        foreach (app(StripeAccounts::class)->webhookSecrets() as $slug => $secret) {
+            try {
+                $event = Webhook::constructEvent($payload, $sig_header, $secret);
+                break;
+            } catch (\Exception $e) {
+                // Wrong account for this delivery — try the next secret.
+                $lastError = $e->getMessage();
+            }
+        }
+
+        if (! $event) {
+            return response('Webhook error: ' . $lastError, 400);
         }
 
         if ($event->type === 'checkout.session.completed') {

@@ -28,6 +28,8 @@ use App\Services\Wallet\PassData;
 use mikehaertl\pdftk\Pdf;
 use QR_Code\QR_Code;
 use Spatie\TemporaryDirectory\TemporaryDirectory;
+use App\Services\Stripe\StripeAccounts;
+use App\Services\Stripe\StripeCustomerResolver;
 use Stripe\Stripe;
 
 class EventController extends Controller
@@ -173,7 +175,12 @@ class EventController extends Controller
                 ->values();
         }
 
-        $intent = auth()->user()->createSetupIntent();
+        // Card collection has to happen on the same Stripe account the charge
+        // will be made on, so the SetupIntent and the publishable key both come
+        // from this event's account rather than Cashier's single one.
+        $stripeAccount = app(StripeAccounts::class)->forEvent($event);
+        $intent = app(StripeCustomerResolver::class)->createSetupIntent(auth()->user(), $stripeAccount);
+        $stripeKey = app(StripeAccounts::class)->publishableKey($stripeAccount);
         $allRanks = Rank::orderBy('id')->get();
 
         // The user's most recent t-shirt size, from add-on answers.
@@ -273,7 +280,7 @@ class EventController extends Controller
             ->where('type', 'meal_ticket')
             ->reduce(fn ($c, $a) => $c + ($a->selected ? 1 : 0) + (int) $a->quantity, 0);
 
-        return view('event.register', compact('event', 'intent', 'allRanks', 'tshirts', 'participation', 'ranks', 'guests', 'meals', 'mealPrice', 'regFee', 'already_reg', 'registrations', 'registeredRegs', 'adjustCurrent', 'canEditAddons', 'mealVoucherCount'));
+        return view('event.register', compact('event', 'intent', 'stripeKey', 'allRanks', 'tshirts', 'participation', 'ranks', 'guests', 'meals', 'mealPrice', 'regFee', 'already_reg', 'registrations', 'registeredRegs', 'adjustCurrent', 'canEditAddons', 'mealVoucherCount'));
     }
 
     public function registerProcess(Request $request, $slug = null)
@@ -388,9 +395,13 @@ class EventController extends Controller
 
         if ($paymentMethod) {
             try {
-                Stripe::setApiKey(config('services.stripe.secret'));
-                $user->createOrGetStripeCustomer();
-                $user->updateDefaultPaymentMethod($paymentMethod);
+                $stripeAccount = app(StripeAccounts::class)->forEvent($event);
+                Stripe::setApiKey(app(StripeAccounts::class)->secret($stripeAccount));
+
+                // Customer ids don't cross Stripe accounts, so resolve (or
+                // create) this user's customer on the event's account.
+                $customerId = app(StripeCustomerResolver::class)
+                    ->resolve($user, $stripeAccount, $paymentMethod);
 
                 // On-session confirm (no off_session): the customer is present, so
                 // Stripe can request 3-D Secure authentication (via modal, not a
@@ -399,7 +410,7 @@ class EventController extends Controller
                 $paymentIntent = \Stripe\PaymentIntent::create([
                     'amount' => (int) round($price * 100),
                     'currency' => 'usd',
-                    'customer' => $user->stripe_id,
+                    'customer' => $customerId,
                     'payment_method' => $paymentMethod,
                     'payment_method_types' => ['card'],
                     'confirm' => true,
@@ -459,7 +470,7 @@ class EventController extends Controller
         }
 
         try {
-            Stripe::setApiKey(config('services.stripe.secret'));
+            Stripe::setApiKey(app(StripeAccounts::class)->secretForEvent($event));
             $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentIntentId);
         } catch (\Throwable $exception) {
             return response()->json(['status' => 'error', 'message' => $exception->getMessage()], 422);
@@ -1256,7 +1267,7 @@ class EventController extends Controller
             $payment_intent_id = $payment->stripe_payment_intent_id;
 
             //Lookup from stripe API
-            $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
+            $stripe = new \Stripe\StripeClient(app(StripeAccounts::class)->secretForEvent($event));
             $intent = $stripe->paymentIntents->retrieve($payment_intent_id, []);
 
             if($intent->status == 'succeeded') {
@@ -1264,7 +1275,7 @@ class EventController extends Controller
                 return Inertia::render('Event/Register/Complete/AlreadySucceeded', ['event' => $event, 'intent' => $intent, 'regs' => $regs, 'payment_made' => $payment_made]);
             }  elseif($intent->status == 'requires_payment_method') {
                 //show form to accept payment to finish.
-                return Inertia::render('Event/Register/Complete/RegForm', ['event' => $event, 'intent' => $intent, 'regs' => $regs, 'stripe_key' => config('app.stripe_key'), 'payment_made' => $payment_made]);
+                return Inertia::render('Event/Register/Complete/RegForm', ['event' => $event, 'intent' => $intent, 'regs' => $regs, 'stripe_key' => app(StripeAccounts::class)->publishableKeyForEvent($event), 'payment_made' => $payment_made]);
             } else {
                 //something else
                 return Inertia::render('Event/Register/Complete/Other', ['event' => $event, 'intent' => $intent, 'regs' => $regs, 'payment_made' => $payment_made]);

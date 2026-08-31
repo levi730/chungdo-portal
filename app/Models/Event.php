@@ -58,7 +58,7 @@ class Event extends Model implements HasMedia
     /**
      * @var array
      */
-    protected $fillable = ['created_at', 'updated_at', 'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'details', 'minimum_rank_id', 'slug', 'map_url', 'require_ticket', 'published_version_id', 'published_forms_version_id'];
+    protected $fillable = ['created_at', 'updated_at', 'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'stripe_account', 'details', 'minimum_rank_id', 'slug', 'map_url', 'require_ticket', 'published_version_id', 'published_forms_version_id'];
 
     protected function casts(): array
     {
@@ -68,6 +68,24 @@ class Event extends Model implements HasMedia
             'startdatetime' => 'datetime',
             'enddatetime' => 'datetime',
         ];
+    }
+
+    /**
+     * True once any money has moved for this event. The Stripe account is
+     * locked at that point: a refund has to be issued on the account that took
+     * the charge, so repointing the event would strand it.
+     */
+    public function hasPayments(): bool
+    {
+        return \App\Models\PendingEventRegistration::where('event_id', $this->id)
+            ->whereNotNull('stripe_payment_intent_id')
+            ->exists();
+    }
+
+    /** Human label for the Stripe account this event's money lands in. */
+    public function stripeAccountLabel(): string
+    {
+        return app(\App\Services\Stripe\StripeAccounts::class)->label($this->stripe_account);
     }
 
     public function publishedDivisionVersion(): \Illuminate\Database\Eloquent\Relations\BelongsTo

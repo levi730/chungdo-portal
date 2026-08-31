@@ -1,6 +1,9 @@
 <table>
     <thead>
     <tr>
+        <th colspan="3"><b>Stripe account: {{ $stripeAccount }}</b></th>
+    </tr>
+    <tr>
         <th><b>Date</b></th>
         <th><b>Type</b></th>
         <th><b>Payor</b></th>

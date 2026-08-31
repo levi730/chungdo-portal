@@ -74,6 +74,29 @@
                         </div>
                     </div>
                     <div class="row">
+                        @php($stripeLocked = ! $creating && $event->hasPayments())
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Payments go to</label>
+                            <select name="stripe_account" class="form-select" @disabled($stripeLocked)>
+                                @foreach($stripeAccounts->options() as $slug => $label)
+                                    <option value="{{ $slug }}" @selected(old('stripe_account', $event->stripe_account ?? $stripeAccounts->default()) === $slug)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @if($stripeLocked)
+                                <input type="hidden" name="stripe_account" value="{{ $event->stripe_account }}">
+                                <small class="form-hint text-warning">
+                                    Locked — this event has taken payments. Refunds have to be issued on the
+                                    account that took the charge, so it can't be moved.
+                                </small>
+                            @else
+                                <small class="form-hint">
+                                    Which Stripe account registration money lands in. Can't be changed once
+                                    the first payment is taken.
+                                </small>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Starts</label>
                             <input type="datetime-local" name="startdatetime" class="form-control" value="{{ old('startdatetime', optional($event->startdatetime)->format('Y-m-d\TH:i')) }}">

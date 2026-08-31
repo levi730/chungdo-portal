@@ -23,7 +23,7 @@
             <div class="table-responsive">
                 <table class="table table-vcenter">
                     <thead>
-                        <tr><th>Name</th><th>Type</th><th>Date</th><th class="text-center">Registrations</th><th class="text-center">Add-ons</th><th></th></tr>
+                        <tr><th>Name</th><th>Type</th><th>Date</th><th>Payments to</th><th class="text-center">Registrations</th><th class="text-center">Add-ons</th><th></th></tr>
                     </thead>
                     <tbody>
                         @forelse($events as $event)
@@ -34,6 +34,13 @@
                                 </td>
                                 <td>{{ $event->typeLabel() ?? '—' }}</td>
                                 <td>{{ optional($event->startdatetime)->format('M j, Y') ?? '—' }}</td>
+                                <td>
+                                    @if($event->stripe_account === config('services.stripe.default_account', 'association'))
+                                        <span class="text-muted">{{ $event->stripeAccountLabel() }}</span>
+                                    @else
+                                        <span class="badge bg-yellow-lt">{{ $event->stripeAccountLabel() }}</span>
+                                    @endif
+                                </td>
                                 <td class="text-center">{{ $event->registrations_count }}</td>
                                 <td class="text-center">{{ $event->addons->where('enabled', true)->count() }}</td>
                                 <td class="text-end">
@@ -55,7 +62,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted">No events yet.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted">No events yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

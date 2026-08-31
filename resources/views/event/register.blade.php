@@ -588,7 +588,9 @@
 
         document.addEventListener("DOMContentLoaded", function() {
 
-            let stripe = Stripe("{{ config('app.stripe_key') }}")
+            // Publishable key for THIS event's Stripe account — it must match
+            // the account the SetupIntent and PaymentIntent are created on.
+            let stripe = Stripe("{{ $stripeKey }}")
             let elements = stripe.elements()
 
             const cardNumberElement = elements.create('cardNumber');

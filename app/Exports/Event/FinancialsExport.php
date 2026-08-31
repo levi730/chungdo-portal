@@ -48,6 +48,9 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
             'columns' => $data['columns'],
             'rows' => $data['rows'],
             'net' => $data['net'],
+            // Which Stripe account these charges are in — needed to reconcile
+            // this sheet against the right Stripe dashboard.
+            'stripeAccount' => $this->event->stripeAccountLabel(),
         ]);
     }
 

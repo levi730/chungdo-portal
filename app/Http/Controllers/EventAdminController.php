@@ -7,6 +7,7 @@ use App\Http\Requests\EventRequest;
 use App\Models\Event;
 use App\Models\Rank;
 use App\Models\School;
+use App\Services\Stripe\StripeAccounts;
 use Illuminate\Http\Request;
 
 class EventAdminController extends Controller
@@ -29,7 +30,7 @@ class EventAdminController extends Controller
         $ranks = Rank::orderBy('id')->get();
         $schools = School::orderBy('name')->get();
 
-        return view('event.admin.form', ['event' => $event, 'ranks' => $ranks, 'schools' => $schools, 'creating' => true]);
+        return view('event.admin.form', ['event' => $event, 'ranks' => $ranks, 'schools' => $schools, 'creating' => true, 'stripeAccounts' => app(StripeAccounts::class)]);
     }
 
     public function store(EventRequest $request)
@@ -51,7 +52,7 @@ class EventAdminController extends Controller
         $schools = School::orderBy('name')->get();
         $event->load('addons');
 
-        return view('event.admin.form', ['event' => $event, 'ranks' => $ranks, 'schools' => $schools, 'creating' => false]);
+        return view('event.admin.form', ['event' => $event, 'ranks' => $ranks, 'schools' => $schools, 'creating' => false, 'stripeAccounts' => app(StripeAccounts::class)]);
     }
 
     public function update(EventRequest $request, Event $event)
@@ -114,6 +115,13 @@ class EventAdminController extends Controller
         $event->fill($request->only([
             'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'details', 'slug', 'map_url', 'minimum_rank_id', 'require_ticket',
         ]));
+
+        // The Stripe account is locked once money has moved (see EventRequest),
+        // and the select is disabled in that case so nothing is posted.
+        if (! $event->exists || ! $event->hasPayments()) {
+            $event->stripe_account = app(StripeAccounts::class)
+                ->resolve($request->input('stripe_account'));
+        }
     }
 
     /**
