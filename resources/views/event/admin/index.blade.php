@@ -32,7 +32,12 @@
                                     {{ $event->name }}
                                     @if($event->trashed())<span class="badge bg-secondary text-white ms-1">Archived</span>@endif
                                 </td>
-                                <td>{{ $event->typeLabel() ?? '—' }}</td>
+                                <td>
+                                    {{ $event->typeLabel() ?? '—' }}
+                                    @if($event->highlighted)
+                                        <span class="badge bg-azure-lt" title="Featured on the home page (order {{ $event->highlight_order }})">Featured</span>
+                                    @endif
+                                </td>
                                 <td>{{ optional($event->startdatetime)->format('M j, Y') ?? '—' }}</td>
                                 <td>
                                     @if($event->stripe_account === config('services.stripe.default_account', 'association'))

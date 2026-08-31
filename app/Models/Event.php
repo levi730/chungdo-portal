@@ -58,7 +58,7 @@ class Event extends Model implements HasMedia
     /**
      * @var array
      */
-    protected $fillable = ['created_at', 'updated_at', 'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'stripe_account', 'details', 'minimum_rank_id', 'slug', 'map_url', 'require_ticket', 'published_version_id', 'published_forms_version_id'];
+    protected $fillable = ['created_at', 'updated_at', 'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'stripe_account', 'details', 'minimum_rank_id', 'slug', 'map_url', 'require_ticket', 'highlighted', 'highlight_order', 'published_version_id', 'published_forms_version_id'];
 
     protected function casts(): array
     {
@@ -67,7 +67,27 @@ class Event extends Model implements HasMedia
             'updated_at' => 'datetime',
             'startdatetime' => 'datetime',
             'enddatetime' => 'datetime',
+            'highlighted' => 'boolean',
         ];
+    }
+
+    /**
+     * What the home page features: every upcoming event flagged as highlighted,
+     * in highlight_order then date order. Falls back to the two soonest
+     * upcoming events when nothing is highlighted, which is what the dashboard
+     * did before highlighting existed.
+     */
+    public static function forHomepage(): \Illuminate\Database\Eloquent\Collection
+    {
+        $highlighted = static::upcoming()
+            ->where('highlighted', true)
+            ->orderBy('highlight_order', 'asc')
+            ->orderBy('startdatetime', 'asc')
+            ->get();
+
+        return $highlighted->isNotEmpty()
+            ? $highlighted
+            : static::upcoming()->orderBy('startdatetime', 'asc')->take(2)->get();
     }
 
     /**

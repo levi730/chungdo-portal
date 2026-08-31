@@ -33,6 +33,8 @@ class EventRequest extends FormRequest
             'map_url' => 'nullable|string|max:2000',
             'minimum_rank_id' => 'nullable|exists:ranks,id',
             'require_ticket' => 'boolean',
+            'highlighted' => 'boolean',
+            'highlight_order' => 'nullable|integer|min:0|max:65535',
             'forms.*' => 'nullable|file|mimes:pdf|max:20480',
             'slideshow.*' => 'nullable|file|image|max:20480',
         ];
@@ -67,6 +69,8 @@ class EventRequest extends FormRequest
     {
         $this->merge([
             'require_ticket' => $this->boolean('require_ticket'),
+            'highlighted' => $this->boolean('highlighted'),
+            'highlight_order' => (int) $this->input('highlight_order', 0),
             'slug' => $this->filled('slug') ? \Illuminate\Support\Str::slug($this->input('slug')) : \Illuminate\Support\Str::slug($this->input('name')),
         ]);
     }

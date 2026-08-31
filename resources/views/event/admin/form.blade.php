@@ -138,6 +138,23 @@
                         <input type="checkbox" name="require_ticket" value="1" class="form-check-input" @checked(old('require_ticket', $event->require_ticket))>
                         <span class="form-check-label">Require a QR check-in ticket (mobile wallet passes)</span>
                     </label>
+
+                    <label class="form-check">
+                        <input type="hidden" name="highlighted" value="0">
+                        <input type="checkbox" name="highlighted" value="1" class="form-check-input" @checked(old('highlighted', $event->highlighted))>
+                        <span class="form-check-label">Feature this event on the home page</span>
+                    </label>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Home page order</label>
+                            <input type="number" name="highlight_order" class="form-control" min="0" max="65535"
+                                   value="{{ old('highlight_order', $event->highlight_order ?? 0) }}">
+                            <small class="form-hint">
+                                Lowest first. Leave at 0 to order featured events by date.
+                                When nothing is featured, the home page shows the two soonest upcoming events.
+                            </small>
+                        </div>
+                    </div>
                 </div>
             </div>
 

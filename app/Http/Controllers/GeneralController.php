@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
@@ -19,11 +18,12 @@ class GeneralController extends Controller
         return view('general.first-visit');
     }
 
-    public  function dashboard(Request $request) {
-        $next_events = Event::where('startdatetime', '>=', (new Carbon())->startOfDay())
-            ->orderBy('startdatetime', 'asc')
-            ->take(2)
-            ->get();
+    public function dashboard(Request $request)
+    {
+        // Featured events if any upcoming ones are flagged, otherwise the two
+        // soonest — see Event::forHomepage().
+        $next_events = Event::forHomepage();
+
         return view('dashboard', compact('next_events'));
     }
 

@@ -113,7 +113,7 @@ class EventAdminController extends Controller
     private function fill(Event $event, EventRequest $request): void
     {
         $event->fill($request->only([
-            'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'details', 'slug', 'map_url', 'minimum_rank_id', 'require_ticket',
+            'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'details', 'slug', 'map_url', 'minimum_rank_id', 'require_ticket', 'highlighted', 'highlight_order',
         ]));
 
         // The Stripe account is locked once money has moved (see EventRequest),
