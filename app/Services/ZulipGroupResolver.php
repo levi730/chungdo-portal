@@ -48,6 +48,21 @@ class ZulipGroupResolver
             ->all();
     }
 
+    /**
+     * Committee slugs only — the subset of managedGroups() that gets a Zulip
+     * channel. Belt-rank groups are used for mentions and permissions, not
+     * rooms.
+     */
+    public function committeeSlugs(): array
+    {
+        return \App\Models\Committee::whereNotNull('slug')
+            ->pluck('slug')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public function for(User $user): array
     {
         $groups = [

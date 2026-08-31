@@ -47,6 +47,7 @@ class ZulipSyncService
             'belt_rank_changes' => [],
             'unmatched' => [],
             'groups' => [],
+            'channels' => [],
             'errors' => [],
         ];
 
@@ -65,6 +66,7 @@ class ZulipSyncService
         $byEmail = [];      // email (lower) => zulip user id
         $emailById = [];    // zulip user id  => email
         $currentBelt = [];  // zulip user id  => current belt-rank field value
+        $protected = [];    // zulip user ids never unsubscribed from a channel
 
         foreach ($this->zulip->getUsers(withProfileFields: (bool) $beltField) as $u) {
             $email = strtolower($u['delivery_email'] ?? $u['email'] ?? '');
@@ -76,6 +78,14 @@ class ZulipSyncService
             $id = (int) $u['user_id'];
             $byEmail[$email] = $id;
             $emailById[$id] = $email;
+
+            // Organization admins/owners and bots are never unsubscribed from a
+            // committee channel. They are often in a room to administer it
+            // rather than because they sit on the committee, and the sync bot
+            // must not lock itself out.
+            if (($u['is_owner'] ?? false) || ($u['is_admin'] ?? false) || ($u['is_bot'] ?? false)) {
+                $protected[$id] = $id;
+            }
 
             if ($beltField) {
                 $currentBelt[$id] = $u['profile_data'][(string) $beltField['id']]['value'] ?? null;
@@ -124,7 +134,127 @@ class ZulipSyncService
         // 2) Reconcile group memberships for the managed group universe.
         $this->reconcileGroups($eligible, $byEmail, $emailById, $dryRun, $summary);
 
+        // 3) Reconcile the committee channels those groups gate.
+        $this->reconcileChannels($eligible, $byEmail, $emailById, $protected, $dryRun, $summary);
+
         return $summary;
+    }
+
+    /**
+     * Each committee has a private Zulip channel named after its slug, gated by
+     * the committee's user group. This creates a missing channel, points the
+     * channel's permission settings at the group, and reconciles subscribers to
+     * the group's membership.
+     *
+     * Zulip has no auto-subscribe-on-group-join: subscribing a group is not a
+     * thing the API supports (principals takes user ids only), so membership
+     * has to be reconciled here the same way group membership is.
+     *
+     * Admins, owners and bots are added like anyone else but never removed.
+     */
+    private function reconcileChannels($eligible, array $byEmail, array $emailById, array $protected, bool $dryRun, array &$summary): void
+    {
+        $slugs = $this->groups->committeeSlugs();
+
+        if (empty($slugs)) {
+            return;
+        }
+
+        try {
+            $groupIds = collect($this->zulip->getUserGroups())->pluck('id', 'name');
+            $streams = collect($this->zulip->getStreams())->keyBy('name');
+        } catch (Throwable $e) {
+            $summary['errors'][] = "Fetching Zulip channels: {$e->getMessage()}";
+
+            return;
+        }
+
+        // Desired membership per committee slug, from the portal.
+        $desired = [];
+        foreach ($eligible as $user) {
+            $email = strtolower($user->email);
+
+            if (! isset($byEmail[$email])) {
+                continue; // already recorded as unmatched by the group step
+            }
+
+            foreach ($this->groups->for($user) as $slug) {
+                if (in_array($slug, $slugs, true)) {
+                    $desired[$slug][$byEmail[$email]] = $byEmail[$email];
+                }
+            }
+        }
+
+        $folderId = config('services.zulip.committee_folder_id');
+        $folderId = $folderId === null ? null : (int) $folderId;
+
+        foreach ($slugs as $slug) {
+            $members = array_values($desired[$slug] ?? []);
+            $groupId = $groupIds->get($slug);
+
+            if (! $groupId) {
+                $summary['errors'][] = "Channel {$slug}: no matching Zulip user group, skipped.";
+
+                continue;
+            }
+
+            $settings = [
+                'can_subscribe_group' => (int) $groupId,
+                'can_add_subscribers_group' => (int) $groupId,
+                'can_send_message_group' => (int) $groupId,
+            ];
+
+            try {
+                $stream = $streams->get($slug);
+
+                if (! $stream) {
+                    if (! config('services.zulip.create_committee_channels', true)) {
+                        continue;
+                    }
+
+                    if (! $dryRun) {
+                        $this->zulip->createStream(
+                            $slug,
+                            "Managed by the Chung Do Portal.",
+                            $members,
+                            $settings,
+                            $folderId,
+                        );
+                    }
+
+                    $summary['channels'][$slug] = [
+                        'create' => true,
+                        'add' => $this->names($members, $emailById),
+                        'remove' => [],
+                    ];
+
+                    continue;
+                }
+
+                $streamId = (int) $stream['stream_id'];
+                $current = $this->zulip->getSubscribers($streamId);
+
+                $add = array_values(array_diff($members, $current));
+                // Never unsubscribe an admin, owner or bot.
+                $remove = array_values(array_diff($current, $members, $protected));
+
+                if (! $dryRun) {
+                    $this->zulip->setStreamGroupSettings($streamId, $settings);
+                    $this->zulip->subscribe($slug, $add);
+                    $this->zulip->unsubscribe($slug, $remove);
+                }
+
+                if ($add || $remove) {
+                    $summary['channels'][$slug] = [
+                        'create' => false,
+                        'add' => $this->names($add, $emailById),
+                        'remove' => $this->names($remove, $emailById),
+                    ];
+                }
+            } catch (Throwable $e) {
+                $summary['errors'][] = "Channel {$slug}: {$e->getMessage()}";
+            }
+        }
     }
 
     private function reconcileGroups($eligible, array $byEmail, array $emailById, bool $dryRun, array &$summary): void

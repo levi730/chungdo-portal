@@ -79,12 +79,30 @@ class ZulipSync extends Command
             }
         }
 
-        $removals = array_sum(array_map(fn ($c) => count($c['remove'] ?? []), $groups));
+        $channels = $s['channels'] ?? [];
+        $this->newLine();
+        $this->line(sprintf('Committee channels %s: %d', $dryRun ? 'to change' : 'changed', count($channels)));
+
+        foreach ($channels as $slug => $change) {
+            $label = ($change['create'] ?? false) ? " (channel {$this->wouldBe($dryRun)} created)" : '';
+            $this->line("  {$slug}{$label}");
+
+            foreach ($change['add'] ?? [] as $who) {
+                $this->line("    <fg=green>+ {$who}</>");
+            }
+            foreach ($change['remove'] ?? [] as $who) {
+                $this->line("    <fg=red>- {$who}</>");
+            }
+        }
+
+        $removals = array_sum(array_map(fn ($c) => count($c['remove'] ?? []), $groups))
+            + array_sum(array_map(fn ($c) => count($c['remove'] ?? []), $channels));
         if ($removals > 0) {
             $this->newLine();
             $this->warn(sprintf(
-                '%d group membership removal(s) %s — the portal is canonical, so anyone in a managed '
-                .'group that the portal does not place there %s dropped from it.',
+                '%d membership removal(s) %s — the portal is canonical, so anyone in a managed group '
+                .'or committee channel that the portal does not place there %s removed. '
+                .'Zulip admins, owners and bots are never removed.',
                 $removals,
                 $dryRun ? 'pending' : 'applied',
                 $dryRun ? 'would be' : 'was',

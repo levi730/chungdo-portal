@@ -46,6 +46,13 @@ return [
         'bot_api_key' => env('ZULIP_BOT_API_KEY'),
         // Name of the Zulip custom profile field that receives the belt rank.
         'belt_rank_field' => env('ZULIP_BELT_RANK_FIELD', 'Belt rank'),
+
+        // Committee channels: private Zulip channels named after the committee
+        // slug. The folder is the "COMMITTEES" channel folder they are filed
+        // under; leave null to file them nowhere.
+        'committee_folder_id' => env('ZULIP_COMMITTEE_FOLDER_ID'),
+        // Create a channel for a committee that doesn't have one yet.
+        'create_committee_channels' => (bool) env('ZULIP_CREATE_COMMITTEE_CHANNELS', true),
     ],
 
 ];
