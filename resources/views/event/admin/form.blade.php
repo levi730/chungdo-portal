@@ -150,8 +150,9 @@
                             <input type="number" name="highlight_order" class="form-control" min="0" max="65535"
                                    value="{{ old('highlight_order', $event->highlight_order ?? 0) }}">
                             <small class="form-hint">
-                                Lowest first. Leave at 0 to order featured events by date.
-                                When nothing is featured, the home page shows the two soonest upcoming events.
+                                Higher sits higher on the page. Leave at 0 unless you want this event
+                                above another featured one. Featured events are pinned to the top of the
+                                home page and the soonest upcoming events fill in below.
                             </small>
                         </div>
                     </div>

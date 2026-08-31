@@ -20,8 +20,8 @@ class GeneralController extends Controller
 
     public function dashboard(Request $request)
     {
-        // Featured events if any upcoming ones are flagged, otherwise the two
-        // soonest — see Event::forHomepage().
+        // Featured events pinned on top, soonest upcoming filling in below —
+        // see Event::forHomepage().
         $next_events = Event::forHomepage();
 
         return view('dashboard', compact('next_events'));

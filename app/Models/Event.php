@@ -71,23 +71,38 @@ class Event extends Model implements HasMedia
         ];
     }
 
+    /** How many events the home page shows in total. */
+    public const HOMEPAGE_LIMIT = 3;
+
     /**
-     * What the home page features: every upcoming event flagged as highlighted,
-     * in highlight_order then date order. Falls back to the two soonest
-     * upcoming events when nothing is highlighted, which is what the dashboard
-     * did before highlighting existed.
+     * What the home page shows: featured upcoming events pinned to the top,
+     * then the soonest upcoming events filling in below, capped at
+     * HOMEPAGE_LIMIT.
+     *
+     * Featured events sort by highlight_order DESCENDING — a higher number sits
+     * higher on the page — then by date. That way the default of 0 is the
+     * resting baseline and any positive number promotes an event above it
+     * without having to renumber everything else. Featured events with equal
+     * order fall back to date order, so leaving them all at 0 is soonest-first.
+     *
+     * Featuring nothing leaves the page exactly as it was before highlighting
+     * existed: the soonest upcoming events, by date.
      */
-    public static function forHomepage(): \Illuminate\Database\Eloquent\Collection
+    public static function forHomepage(): \Illuminate\Support\Collection
     {
-        $highlighted = static::upcoming()
+        $featured = static::upcoming()
             ->where('highlighted', true)
-            ->orderBy('highlight_order', 'asc')
+            ->orderBy('highlight_order', 'desc')
             ->orderBy('startdatetime', 'asc')
             ->get();
 
-        return $highlighted->isNotEmpty()
-            ? $highlighted
-            : static::upcoming()->orderBy('startdatetime', 'asc')->take(2)->get();
+        $fill = static::upcoming()
+            ->whereNotIn('id', $featured->pluck('id')->all())
+            ->orderBy('startdatetime', 'asc')
+            ->take(self::HOMEPAGE_LIMIT)
+            ->get();
+
+        return $featured->concat($fill)->take(self::HOMEPAGE_LIMIT);
     }
 
     /**
