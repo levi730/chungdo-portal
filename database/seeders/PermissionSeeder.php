@@ -60,6 +60,7 @@ class PermissionSeeder extends Seeder
                     'event.manageAddons',
                     'event.approveRefunds',
                     'event.manage',
+                    'store.manage',
                 ],
             ],
         ];
@@ -70,6 +71,9 @@ class PermissionSeeder extends Seeder
             'event.manageAddons',
             'event.approveRefunds',
             'event.manage',
+            // The merchandise store. Held by the same people who run events so
+            // it isn't gated on manage-users, which is super.admin only.
+            'store.manage',
         ];
 
         $this->buildPermissions();

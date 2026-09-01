@@ -36,6 +36,26 @@ Route::get('/glide/{path}', [\App\Http\Controllers\ImageController::class, 'show
 
 Route::get('/first-visit', [\App\Http\Controllers\GeneralController::class, 'firstVisit'])->name('first-visit');
 
+// The public storefront. These are deliberately OUTSIDE the auth group — the
+// store sells to guests as well as members (docs/store-design.md), which makes
+// them the only member-facing pages in the portal a signed-out visitor can
+// reach. Browsing and the cart are public; who may check out is decided at
+// checkout, not here. Nothing below touches money.
+Route::get('/store', [\App\Http\Controllers\StoreController::class, 'index'])->name('store.index');
+Route::get('/store/cart', [\App\Http\Controllers\StoreController::class, 'cart'])->name('store.cart');
+Route::post('/store/cart', [\App\Http\Controllers\StoreController::class, 'addToCart'])->name('store.cart.add');
+Route::patch('/store/cart', [\App\Http\Controllers\StoreController::class, 'updateCart'])->name('store.cart.update');
+Route::delete('/store/cart/{variant}', [\App\Http\Controllers\StoreController::class, 'removeFromCart'])->name('store.cart.remove');
+// Checkout. Also public: members pay on-page with Elements, guests are sent to
+// Stripe Hosted Checkout. Both write the order row here first.
+Route::get('/store/checkout', [\App\Http\Controllers\StoreCheckoutController::class, 'show'])->name('store.checkout');
+Route::post('/store/checkout', [\App\Http\Controllers\StoreCheckoutController::class, 'store'])->name('store.checkout.store');
+Route::post('/store/checkout/finalize', [\App\Http\Controllers\StoreCheckoutController::class, 'finalize'])->name('store.checkout.finalize');
+Route::get('/store/complete/{reference}', [\App\Http\Controllers\StoreCheckoutController::class, 'complete'])->name('store.complete');
+
+// Last, so /store/cart and /store/checkout aren't swallowed by the slug.
+Route::get('/store/{slug}', [\App\Http\Controllers\StoreController::class, 'show'])->name('store.show');
+
 // Project United (donations / t-shirts / hoodies) was retired in 2026. The
 // purchase routes are gone; the admin reports below remain because the
 // transactions are financial records. See docs/project-united-retirement.md.
@@ -108,6 +128,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/events/{id}/restore', [\App\Http\Controllers\EventAdminController::class, 'restore'])->name('events.restore');
     Route::delete('/admin/events/{event}/media/{media}', [\App\Http\Controllers\EventAdminController::class, 'deleteMedia'])->name('events.media.delete');
     Route::post('/admin/events/{event}/media/{media}/focus', [\App\Http\Controllers\EventAdminController::class, 'setMediaFocus'])->name('events.media.focus');
+
+    // Store admin CRUD (permission enforced in the controller, as with events)
+    Route::get('/admin/products', [\App\Http\Controllers\ProductAdminController::class, 'index'])->name('products.index');
+    Route::get('/admin/products/create', [\App\Http\Controllers\ProductAdminController::class, 'create'])->name('products.create');
+    Route::post('/admin/products', [\App\Http\Controllers\ProductAdminController::class, 'store'])->name('products.store');
+    Route::get('/admin/products/{product}/edit', [\App\Http\Controllers\ProductAdminController::class, 'edit'])->name('products.edit');
+    Route::put('/admin/products/{product}', [\App\Http\Controllers\ProductAdminController::class, 'update'])->name('products.update');
+    Route::delete('/admin/products/{product}', [\App\Http\Controllers\ProductAdminController::class, 'destroy'])->name('products.destroy');
+    Route::post('/admin/products/{id}/restore', [\App\Http\Controllers\ProductAdminController::class, 'restore'])->name('products.restore');
+    Route::delete('/admin/products/{product}/media/{media}', [\App\Http\Controllers\ProductAdminController::class, 'deleteMedia'])->name('products.media.delete');
+    Route::post('/admin/products/{product}/media/{media}/focus', [\App\Http\Controllers\ProductAdminController::class, 'setMediaFocus'])->name('products.media.focus');
+
+    // Print runs, and the variants on sale during each
+    Route::get('/admin/products/{product}/runs/create', [\App\Http\Controllers\ProductRunController::class, 'create'])->name('products.runs.create');
+    Route::post('/admin/products/{product}/runs', [\App\Http\Controllers\ProductRunController::class, 'store'])->name('products.runs.store');
+    Route::get('/admin/products/{product}/runs/{run}/edit', [\App\Http\Controllers\ProductRunController::class, 'edit'])->name('products.runs.edit');
+    Route::put('/admin/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'update'])->name('products.runs.update');
+    Route::delete('/admin/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'destroy'])->name('products.runs.destroy');
 
     Route::get('/event/latest', [\App\Http\Controllers\EventController::class, 'latest'])->name('event.latest');
     Route::middleware('can:event.reorganizeDivisions')->group(function () {
