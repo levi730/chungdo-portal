@@ -1,8 +1,9 @@
-{{-- Slideshow images with a focal-point picker. The focus point (0-100%) + zoom
-     are saved to each media's custom properties and drive Glide's focal crop
-     (see glideCropUrlFromMedia), so one point yields correct crops at any size. --}}
+{{-- Product images with the shared focal-point picker. Same mechanism as the
+     event slideshow — the point is stored on the media's custom properties and
+     drives Glide's focal crop — but the crop previews use the shapes a product
+     actually appears in. --}}
 @php
-    $slideImages = $event->getMedia('slideshow-images')->map(fn ($m) => [
+    $productImages = $product->getMedia('product-images')->map(fn ($m) => [
         'id' => $m->id,
         'url' => glideUrlFromMedia($m, 'w=1000'),
         'focusX' => (float) ($m->getCustomProperty('focusX') ?? 50),
@@ -13,14 +14,21 @@
 
 <div class="d-flex flex-wrap gap-3 mt-2"
      x-data="focusPicker({
-        mediaBase: @js(url('/admin/events/'.$event->id.'/media')),
+        mediaBase: @js(url('/admin/products/'.$product->id.'/media')),
         csrf: @js(csrf_token()),
-        images: @js($slideImages),
+        images: @js($productImages),
+        {{-- Only the crops that actually happen. The product page's main image
+             is resized, not cropped, so a focal point does nothing there and
+             previewing a hero crop would be misleading. --}}
+        ratios: [
+            { label: 'Store card', w: 600, h: 400 },
+            { label: 'Gallery thumbnail', w: 200, h: 200 },
+        ],
      })">
 
     <template x-for="img in images" :key="img.id">
         <div class="text-center">
-            <div style="width:110px;height:66px;overflow:hidden;border-radius:4px;border:1px solid #dee2e6;">
+            <div style="width:110px;height:110px;overflow:hidden;border-radius:4px;border:1px solid #dee2e6;">
                 <img :src="img.url"
                      :style="`width:100%;height:100%;object-fit:cover;object-position:${img.focusX}% ${img.focusY}%;transform:scale(${img.zoom});transform-origin:${img.focusX}% ${img.focusY}%`">
             </div>
@@ -58,7 +66,11 @@
                         </div>
                         <label class="form-label mt-3 mb-1 small">Zoom — <span x-text="current.zoom.toFixed(1) + '×'"></span></label>
                         <input type="range" class="form-range" min="1" max="3" step="0.1" x-model.number="current.zoom">
-                        <div class="text-muted small">Click or drag on the image to set the focal point. Previews update live.</div>
+                        <div class="text-muted small">
+                            Click or drag on the image to set the focal point. Previews update live.
+                            This only affects the cropped shapes on the right — on the product page
+                            the full image is shown uncropped.
+                        </div>
                     </div>
                     <div class="col-md-5">
                         <div class="text-muted small mb-2">Crop previews</div>

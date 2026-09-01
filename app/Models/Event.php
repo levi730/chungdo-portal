@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Services\Stripe\ChargedToStripeAccount;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -22,7 +23,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property string $details
  * @property float $cost
  */
-class Event extends Model implements HasMedia
+class Event extends Model implements ChargedToStripeAccount, HasMedia
 {
     use InteractsWithMedia;
     use SoftDeletes;
@@ -115,6 +116,12 @@ class Event extends Model implements HasMedia
         return \App\Models\PendingEventRegistration::where('event_id', $this->id)
             ->whereNotNull('stripe_payment_intent_id')
             ->exists();
+    }
+
+    /** Which Stripe account this event's money lands in (ChargedToStripeAccount). */
+    public function stripeAccountSlug(): ?string
+    {
+        return $this->stripe_account;
     }
 
     /** Human label for the Stripe account this event's money lands in. */
