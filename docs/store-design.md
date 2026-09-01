@@ -402,25 +402,41 @@ That is the cheapest path to closing the gap for events too.
 - Shipping later drops in as `fulfillment_method` (`pickup` | `ship`) plus an
   address block and a `shipping` amount on the order; nothing above changes.
 
-## Home page highlighting
+## Home page highlighting (done 2026-09-01)
 
-Mirror events exactly:
+**Two different pages, and the distinction is the thing people get wrong.**
+
+- **The store page (`/store`)** lists *everything currently for sale* —
+  `Product::orderable()`, no highlight filter. The catalogue is expected to stay
+  around five products, so there is nothing to curate.
+- **The portal home page (the dashboard)** shows only what someone has
+  explicitly ticked. `Product::forHomepage()`, fed to
+  `GeneralController::dashboard()` as `$featured_products` and rendered by
+  `dashboard.blade.php` beneath the upcoming events.
+
+The admin checkbox says "Feature this product on the **portal** home page" and
+its hint spells out which page it means, because "home page" alone reads as the
+store's own front page.
 
 ```php
-Product::HOMEPAGE_LIMIT = 2;   // events use 3
-Product::forHomepage()          // highlighted first by highlight_order desc, then sort_order
+Product::forHomepage()   // highlighted, highlight_order desc, then sort_order
 ```
 
 Ordered `highlight_order` **descending** so the default 0 stays the resting
-baseline — same reasoning as `Event::forHomepage()`. Difference from events:
-products have no start date, so featuring nothing shows **nothing** rather than
-falling back to "soonest". A store section that appears unbidden on the home
-page is a surprise; opt-in is right here. `GeneralController::dashboard()` gets
-`$featured_products` alongside `$next_events`, and `dashboard.blade.php` gets a
-store row that renders only when the collection is non-empty.
+baseline — same reasoning as `Event::forHomepage()`.
 
-A product is only eligible if `status === 'active'` and the order window is
-open.
+Two deliberate differences from events:
+
+- **No fallback.** Products have no start date, so featuring nothing shows
+  nothing rather than filling in with "soonest". A store row appearing unbidden
+  on the home page is a surprise.
+- **No cap.** Events fill the page with whatever is coming up next and so need a
+  ceiling; a product is only there because someone ticked its box, and silently
+  dropping the third tick would make that checkbox a liar. `HOMEPAGE_LIMIT` was
+  removed rather than raised.
+
+A product is only eligible if `status === 'active'` and it has an open run.
+Covered by `tests/Feature/Store/HomepageProductsTest`.
 
 ## Admin
 

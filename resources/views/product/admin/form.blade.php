@@ -131,8 +131,13 @@
                         <label class="form-check">
                             <input type="hidden" name="highlighted" value="0">
                             <input type="checkbox" name="highlighted" value="1" class="form-check-input" @checked(old('highlighted', $product->highlighted))>
-                            <span class="form-check-label">Feature this product on the home page</span>
+                            <span class="form-check-label">Feature this product on the portal home page</span>
                         </label>
+                        <small class="form-hint">
+                            The main dashboard everyone lands on, alongside the upcoming events —
+                            not the store page. Everything currently on sale already appears in the
+                            store; this is for pushing something to the front of the whole portal.
+                        </small>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
@@ -142,7 +147,8 @@
                             <small class="form-hint">
                                 Higher sits higher on the page. Leave at 0 unless you want this product
                                 above another featured one. Unlike events, nothing appears on the home page
-                                unless it is featured here.
+                                unless it is featured here — and every product you tick is shown, none are
+                                dropped.
                             </small>
                         </div>
                     </div>

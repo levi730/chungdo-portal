@@ -50,6 +50,46 @@
             @endforeach
 
 
+            {{-- Store items, shown only when someone has ticked "Feature on the
+                 home page". Unlike events this never fills in with whatever is
+                 on sale — a store row appearing unbidden would be a surprise. --}}
+            @foreach($featured_products as $featured_product)
+                @php($productImage = $featured_product->image())
+                @php($priceRange = $featured_product->priceRange())
+                <div class="card mb-5">
+                    <div class="card-status-top bg-green"></div>
+                    @if($productImage)
+                        <a href="{{ route('store.show', $featured_product->slug) }}">
+                            <img class="card-img-top" alt="{{ $featured_product->name }}"
+                                 src="{{ glideCropUrlFromMedia($productImage, 600, 400) }}">
+                        </a>
+                    @endif
+                    <div class="card-body">
+                        <h3 class="card-title">{{ $featured_product->name }}</h3>
+                        @if($priceRange)
+                            <p class="text-secondary mb-1">
+                                @if($priceRange['low'] == $priceRange['high'])
+                                    ${{ number_format($priceRange['low'], 2) }}
+                                @else
+                                    From ${{ number_format($priceRange['low'], 2) }}
+                                @endif
+                            </p>
+                        @endif
+                        @php($openRun = $featured_product->openRun())
+                        @if($openRun?->closes_at)
+                            <p class="text-secondary mb-0">
+                                Orders close {{ $openRun->closes_at->format('F j, Y') }}
+                            </p>
+                        @endif
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex">
+                            <a href="{{ route('store.show', $featured_product->slug) }}" class="btn btn-primary ms-auto">Shop</a>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+
             <a href="https://linktr.ee/chungdotkd" target="_blank"><div class="card mt-5">
                 <!-- Photo -->
                 <div class="img-responsive img-responsive-21x9 card-img-top" style="background-image: url('/img/linktree_chungdotkd.jpg')"></div>

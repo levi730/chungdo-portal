@@ -41,12 +41,6 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
         self::STATUS_ARCHIVED => 'Archived',
     ];
 
-    /**
-     * How many products the home page shows. Events show 3; the store gets a
-     * smaller slot because it sits below them.
-     */
-    public const HOMEPAGE_LIMIT = 2;
-
     protected $keyType = 'integer';
 
     protected $fillable = [
@@ -160,7 +154,12 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
 
     /**
      * What the home page shows: featured products, highest highlight_order
-     * first, capped at HOMEPAGE_LIMIT.
+     * first.
+     *
+     * Uncapped, unlike events. Events fill the page with whatever is coming up
+     * next, so they need a ceiling; a product only appears because someone
+     * ticked the box for it, and silently dropping the third tick would make
+     * that checkbox a liar.
      *
      * Unlike events this does NOT fill in with whatever else exists. An event
      * has a date, so "the soonest three" is a sensible default; a product does
@@ -174,7 +173,6 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
             ->orderBy('highlight_order', 'desc')
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
-            ->take(self::HOMEPAGE_LIMIT)
             ->get();
     }
 

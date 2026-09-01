@@ -95,12 +95,14 @@ it('shows nothing on the home page when nothing is featured', function () {
     expect(Product::forHomepage())->toHaveCount(0);
 });
 
-it('caps the home page at HOMEPAGE_LIMIT', function () {
-    foreach (range(1, Product::HOMEPAGE_LIMIT + 2) as $i) {
+it('shows every featured product, dropping none', function () {
+    // The checkbox is the only way a product reaches the home page, so a cap
+    // would silently override an explicit choice by whoever ticked it.
+    foreach (range(1, 5) as $i) {
         storeProduct(['highlighted' => true, 'highlight_order' => $i]);
     }
 
-    expect(Product::forHomepage())->toHaveCount(Product::HOMEPAGE_LIMIT);
+    expect(Product::forHomepage())->toHaveCount(5);
 });
 
 it('keeps a featured product off the home page once its run closes', function () {
