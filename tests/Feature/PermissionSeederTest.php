@@ -12,16 +12,38 @@ use Spatie\Permission\PermissionRegistrar;
  * It failed on production on 2026-08-31 with PermissionDoesNotExist for
  * event.manageAddons, having already run its destructive prune.
  *
- * NONE OF THESE TESTS REPRODUCE THAT FAILURE. They were checked by removing the
- * cache reset from the seeder, and they still pass. The suite runs with
- * CACHE_STORE=array (phpunit.xml), where Spatie's permission cache lives and
- * dies inside one process; production uses a persistent store where the cached
- * list survives between requests, which is the only material difference found.
- * The cache reset in the seeder is Spatie's documented requirement and is
- * therefore kept — but treat it as unproven for that environment, not as a
- * demonstrated fix.
+ * ROOT CAUSE, confirmed: a stale Spatie permission cache that the deploying
+ * user could not invalidate. Not a code bug at all — a file ownership one.
  *
- * What these tests DO pin is the behaviour that stops it being destructive:
+ * cache.default is `file`. storage/framework/cache/data/* is written by the web
+ * user (www-data) as drwxr-xr-x, and artisan runs as a different user. Removing
+ * a file needs write permission on its containing directory, so the CLI could
+ * READ the cached permission list — written back when only two permissions
+ * existed — but every attempt to invalidate it silently failed.
+ *
+ * The chain: the seeder created four permissions, could not clear the cache, so
+ * givePermissionTo() resolved against the stale list and threw
+ * PermissionDoesNotExist for a row that existed. Then
+ * Permission::findOrCreate() missed the same way and attempted an INSERT, which
+ * MySQL rejected for violating permissions_name_guard_name_unique — the
+ * database proving the row was there while Spatie insisted it wasn't. Then
+ * `php artisan permission:cache-reset` reported "Unable to flush cache",
+ * because Cache::forget() returned false on a file it could not unlink.
+ *
+ * So the seeder's cache reset only helps when the process running it can
+ * actually write to the cache. The real fix is on the server: the cache tree
+ * needs to be group-writable with the setgid bit, or artisan has to run as the
+ * web user. Anything that resets a cache — this seeder, cache:clear,
+ * config:cache — is broken on that host until it is.
+ *
+ * NONE OF THESE TESTS REPRODUCE IT, and that is a property of the environment
+ * rather than an oversight: the suite runs CACHE_STORE=array (phpunit.xml),
+ * where the cache lives and dies inside one process and cannot go stale between
+ * requests. Reproducing it would mean a persistent cache store in the test
+ * environment. Removing the seeder's cache reset still leaves everything below
+ * green, so do not read these as covering the bug.
+ *
+ * What they DO pin is the behaviour that stops the seeder being destructive:
  * unmanaged permissions and their grants survive, and a full run leaves
  * event.admin holding every permission it is supposed to have.
  */
