@@ -9,10 +9,11 @@ use RuntimeException;
  * Resolves which Stripe account a piece of work belongs to, and hands back that
  * account's credentials.
  *
- * Accounts are declared in config('services.stripe.accounts'). An event names
- * its account in events.stripe_account; anything without an event (or with an
- * unknown/unconfigured value) falls back to the default account, which is the
- * association's.
+ * Accounts are declared in config('services.stripe.accounts'). A chargeable
+ * model names its account through ChargedToStripeAccount — events in
+ * events.stripe_account, products in products.stripe_account. Anything with no
+ * model (or an unknown/unconfigured value) falls back to the default account,
+ * which is the association's.
  *
  * Every Stripe call for event money must set the key from here rather than
  * reading config('services.stripe.secret') directly — that constant is the
@@ -47,9 +48,18 @@ class StripeAccounts
             : $this->default();
     }
 
+    /**
+     * The account slug for anything chargeable (an Event, a Product, ...).
+     * Null, or a model with no account set, resolves to the default.
+     */
+    public function for(?ChargedToStripeAccount $model): string
+    {
+        return $this->resolve($model?->stripeAccountSlug());
+    }
+
     public function forEvent(?Event $event): string
     {
-        return $this->resolve($event?->stripe_account);
+        return $this->for($event);
     }
 
     public function label(?string $slug): string
@@ -67,16 +77,28 @@ class StripeAccounts
         return $this->credential($slug, 'key');
     }
 
+    /** Secret for a chargeable model's account. */
+    public function secretFor(?ChargedToStripeAccount $model): string
+    {
+        return $this->secret($this->for($model));
+    }
+
+    /** Publishable key for a chargeable model's account (goes to the browser). */
+    public function publishableKeyFor(?ChargedToStripeAccount $model): string
+    {
+        return $this->publishableKey($this->for($model));
+    }
+
     /** Secret for an event's account. */
     public function secretForEvent(?Event $event): string
     {
-        return $this->secret($this->forEvent($event));
+        return $this->secretFor($event);
     }
 
     /** Publishable key for an event's account (goes to the browser). */
     public function publishableKeyForEvent(?Event $event): string
     {
-        return $this->publishableKey($this->forEvent($event));
+        return $this->publishableKeyFor($event);
     }
 
     /**
