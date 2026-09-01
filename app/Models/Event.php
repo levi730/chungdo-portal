@@ -118,6 +118,29 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
             ->exists();
     }
 
+    /**
+     * Refresh the cached map picture when — and only when — the map URL
+     * changes. That is what keeps this to one Static Maps request per venue
+     * rather than one per page view. Failure is not fatal: the card falls back
+     * to showing the address.
+     */
+    protected static function booted(): void
+    {
+        // Two hooks rather than one on `saved`: performInsert() never calls
+        // syncChanges(), so wasChanged() is false on create, while
+        // wasRecentlyCreated never clears and would re-fetch on every later
+        // save of the same instance. Split, each says exactly what it means.
+        static::created(function (self $event) {
+            app(\App\Services\EventMapSnapshot::class)->generate($event, force: true);
+        });
+
+        static::updated(function (self $event) {
+            if ($event->wasChanged('map_url')) {
+                app(\App\Services\EventMapSnapshot::class)->generate($event, force: true);
+            }
+        });
+    }
+
     /** Which Stripe account this event's money lands in (ChargedToStripeAccount). */
     public function stripeAccountSlug(): ?string
     {

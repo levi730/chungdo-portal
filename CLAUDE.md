@@ -103,6 +103,27 @@ answer stays a config change rather than a migration over financial records.
 Still open: the order-window close date and the pickup wording (both live on the
 run now, not the product).
 
+## Event map snapshots
+
+Event cards show a **cached still image** of the venue and only load the live
+Google map when clicked. The dashboard previously embedded three 600x450 iframes
+on every visit — 1,350px of page and three third-party requests before anyone
+asked to see a map.
+
+- `App\Services\EventMapSnapshot` reads the coordinates out of the embed URL
+  already stored in `events.map_url` (its `pb` parameter carries
+  `!2d<lng>!3d<lat>`), fetches one Static Maps image, and stores it on the
+  `public` disk keyed by `md5(map_url)`.
+- The fetch happens on `Event::created` and on `updated` **only when `map_url`
+  changed**, so a venue costs one API call ever, not one per page view. Use
+  separate hooks, not `saved`: `performInsert()` never calls `syncChanges()` so
+  `wasChanged()` is false on create, while `wasRecentlyCreated` never clears and
+  re-fires on every later save of the same instance.
+- `php artisan events:cache-maps` backfills existing events.
+- Needs `GOOGLE_MAPS_KEY`. Without it nothing breaks — cards fall back to the
+  address. The key is used **server-side**, so restrict it by IP, not HTTP
+  referrer, and set a quota cap.
+
 ## Testing
 
 Pest, `tests/Feature` uses `DatabaseTransactions` against MySQL (`phpunit.xml`).

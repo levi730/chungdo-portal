@@ -102,10 +102,11 @@ it('shows every featured product rather than capping them', function () {
 it('renders the dashboard normally when nothing is featured', function () {
     homepageProduct(['highlighted' => false]);
 
-    // No store row at all, and the events/Linktree content is untouched.
+    // No store row at all, and the rest of the dashboard is untouched.
     $this->actingAs(dashboardUser())
         ->get('/dashboard')
         ->assertOk()
-        ->assertSee('Welcome!')
+        ->assertSee('Welcome back')
+        ->assertSee('Linktree')
         ->assertDontSee('Orders close');
 });

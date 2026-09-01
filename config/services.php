@@ -55,4 +55,20 @@ return [
         'create_committee_channels' => (bool) env('ZULIP_CREATE_COMMITTEE_CHANNELS', true),
     ],
 
+    // Google Static Maps, used only to snapshot an event's location once so the
+    // dashboard can show a map picture without embedding a live Google map in
+    // every card. The image is fetched server-side and cached on our disk, so
+    // one event costs exactly one API call for as long as its map_url is
+    // unchanged — see App\Services\EventMapSnapshot.
+    //
+    // Leave unset and the cards fall back to the venue address; nothing breaks.
+    // The key is used server-side, so restrict it by IP (not HTTP referrer) and
+    // set a quota cap in the Google Cloud console.
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_KEY'),
+        'zoom' => (int) env('GOOGLE_MAPS_ZOOM', 15),
+        'size' => env('GOOGLE_MAPS_SIZE', '640x360'),
+        'scale' => (int) env('GOOGLE_MAPS_SCALE', 2),
+    ],
+
 ];
