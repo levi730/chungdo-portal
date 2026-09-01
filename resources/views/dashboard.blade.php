@@ -66,82 +66,51 @@
         </div>
     </div>
 
-    {{-- One grid for everything, so nothing is stranded in a half-empty column. --}}
-    <div class="row row-cards">
-
-        @foreach($next_events as $next_event)
-            <div class="col-md-6 col-xl-4">
-                <div class="card h-100">
-                    <div class="card-status-top bg-primary"></div>
-                    <div class="card-body">
-                        <h3 class="card-title mb-1">{{ $next_event->name }}</h3>
-                        <div class="text-secondary">{{ $next_event->startdatetime->format('l, F j, Y | g:ia') }}</div>
-                        <div class="text-secondary mt-1">{!! nl2br(e($next_event->location)) !!}</div>
-                        @include('partials.event.map-preview', ['event' => $next_event])
-                    </div>
-                    {{-- Guarded because route() throws on a null slug, which
-                         would take the whole dashboard down for everyone over
-                         one malformed event. Same check as the events index. --}}
-                    @if($next_event->slug)
-                        <div class="card-footer">
-                            <div class="d-flex">
-                                <a href="{{ route('event.register', $next_event->slug) }}" class="btn btn-primary ms-auto">Details</a>
-                            </div>
-                        </div>
+    {{-- The feature row: the top one or two highlighted things, events and store
+         items alike, ranked on one shared highlight_order scale. One featured
+         thing fills the width on its own rather than sitting beside a gap;
+         nothing featured means no row at all. --}}
+    @if($featured->isNotEmpty())
+        <div class="row row-cards mb-3">
+            @foreach($featured as $item)
+                <div class="{{ $featured->count() === 1 ? 'col-12' : 'col-lg-6' }}">
+                    @if($item instanceof \App\Models\Event)
+                        @include('partials.home.event-card', ['event' => $item, 'large' => true])
+                    @else
+                        @include('partials.home.product-card', ['product' => $item, 'large' => true])
                     @endif
                 </div>
-            </div>
-        @endforeach
-
-        {{-- Store items appear only when someone ticked "Feature on the portal
-             home page"; a store row turning up unbidden would be a surprise. --}}
-        @foreach($featured_products as $featured_product)
-            @php($productImage = $featured_product->image())
-            @php($priceRange = $featured_product->priceRange())
-            @php($openRun = $featured_product->openRun())
-            <div class="col-md-6 col-xl-4">
-                <div class="card h-100">
-                    <div class="card-status-top bg-green"></div>
-                    @if($productImage)
-                        <a href="{{ route('store.show', $featured_product->slug) }}">
-                            <img class="card-img-top" alt="{{ $featured_product->name }}"
-                                 style="height:200px;object-fit:cover;"
-                                 src="{{ glideCropUrlFromMedia($productImage, 600, 400) }}">
-                        </a>
-                    @endif
-                    <div class="card-body">
-                        <h3 class="card-title mb-1">{{ $featured_product->name }}</h3>
-                        @if($priceRange)
-                            <div class="text-secondary">
-                                @if($priceRange['low'] == $priceRange['high'])
-                                    ${{ number_format($priceRange['low'], 2) }}
-                                @else
-                                    From ${{ number_format($priceRange['low'], 2) }}
-                                @endif
-                            </div>
-                        @endif
-                        @if($openRun?->closes_at)
-                            <div class="text-secondary">Orders close {{ $openRun->closes_at->format('F j, Y') }}</div>
-                        @endif
-                    </div>
-                    <div class="card-footer">
-                        <div class="d-flex">
-                            <a href="{{ route('store.show', $featured_product->slug) }}" class="btn btn-primary ms-auto">Shop</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endforeach
-
-        <div class="col-md-6 col-xl-4">
-            <a href="https://linktr.ee/chungdotkd" target="_blank" rel="noopener" class="card h-100">
-                <div class="img-responsive img-responsive-21x9 card-img-top" style="background-image: url('/img/linktree_chungdotkd.jpg')"></div>
-                <div class="card-body">
-                    <h3 class="card-title">Linktree</h3>
-                    <p class="text-secondary mb-0">Check out our Linktree for updates and information across the organization.</p>
-                </div>
-            </a>
+            @endforeach
         </div>
-    </div>
+    @endif
+
+    {{-- Everything else, same priority order, at normal size. --}}
+    @if($rest->isNotEmpty())
+        <div class="row row-cards">
+            @foreach($rest as $item)
+                <div class="col-md-6 col-xl-4">
+                    @if($item instanceof \App\Models\Event)
+                        @include('partials.home.event-card', ['event' => $item])
+                    @else
+                        @include('partials.home.product-card', ['product' => $item])
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    {{-- Linktree is evergreen rather than timely, so it no longer occupies a
+         card slot equal to a tournament. --}}
+    <a href="https://linktr.ee/chungdotkd" target="_blank" rel="noopener"
+       class="card card-sm mt-3 text-decoration-none">
+        <div class="card-body d-flex align-items-center">
+            <span class="avatar me-3" style="background-image: url('/img/linktree_chungdotkd.jpg')"></span>
+            <div>
+                <div class="fw-bold">Linktree</div>
+                <div class="text-secondary small">Updates and information across the organization.</div>
+            </div>
+            <span class="ms-auto text-secondary">&rarr;</span>
+        </div>
+    </a>
 </div>
 @endsection

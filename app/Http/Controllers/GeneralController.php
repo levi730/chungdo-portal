@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\Product;
 use App\Models\ProductOrder;
+use App\Services\HomepageHighlights;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
@@ -22,15 +22,12 @@ class GeneralController extends Controller
 
     public function dashboard(Request $request)
     {
-        // Featured events pinned on top, soonest upcoming filling in below —
-        // see Event::forHomepage().
-        $next_events = Event::forHomepage();
-
-        // Store items are opt-in only: a product appears here because someone
-        // ticked "Feature on the portal home page" for it, not because it
-        // happens to be on sale. Nothing featured means no store row at all —
-        // see Product::forHomepage().
-        $featured_products = Product::forHomepage();
+        // Events and store items share one priority scale, so a shirt can sit
+        // between two events. The top one or two get the large treatment; the
+        // rest fill the grid. See App\Services\HomepageHighlights.
+        $highlights = app(HomepageHighlights::class);
+        $featured = $highlights->featured();
+        $rest = $highlights->rest();
 
         // The summary band. All of this already existed on the User; none of it
         // had anywhere to be shown, while the left half of this page held three
@@ -51,7 +48,7 @@ class GeneralController extends Controller
             : collect();
 
         return view('dashboard', compact(
-            'next_events', 'featured_products',
+            'featured', 'rest',
             'user', 'my_registrations', 'household_count', 'my_orders'
         ));
     }

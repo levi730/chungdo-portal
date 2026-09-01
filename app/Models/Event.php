@@ -141,6 +141,27 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
         });
     }
 
+    /**
+     * "In 12 days" for the home page. Events have no registration deadline
+     * field, so this counts down to the event itself. Null once it has passed,
+     * so a stale card never claims urgency it doesn't have.
+     */
+    public function countdown(): ?string
+    {
+        if (! $this->startdatetime) {
+            return null;
+        }
+
+        $days = (int) now()->startOfDay()->diffInDays($this->startdatetime->copy()->startOfDay(), false);
+
+        return match (true) {
+            $days < 0 => null,
+            $days === 0 => 'Today',
+            $days === 1 => 'Tomorrow',
+            default => 'In '.$days.' days',
+        };
+    }
+
     /** Which Stripe account this event's money lands in (ChargedToStripeAccount). */
     public function stripeAccountSlug(): ?string
     {

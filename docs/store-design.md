@@ -410,9 +410,17 @@ That is the cheapest path to closing the gap for events too.
   `Product::orderable()`, no highlight filter. The catalogue is expected to stay
   around five products, so there is nothing to curate.
 - **The portal home page (the dashboard)** shows only what someone has
-  explicitly ticked. `Product::forHomepage()`, fed to
-  `GeneralController::dashboard()` as `$featured_products` and rendered by
-  `dashboard.blade.php` beneath the upcoming events.
+  explicitly ticked, **interleaved with events on one shared priority scale** —
+  see `App\Services\HomepageHighlights`. `highlight_order` is compared across
+  both types, so a shirt can rank above a tournament. Before that service, the
+  page rendered every event and then every product, and a product could never
+  outrank an event however it was numbered.
+
+  The top one or two featured things get a large treatment: one fills the width
+  on its own, two sit side by side, a third falls back into the normal grid.
+  Nothing unfeatured is ever promoted into that row — an empty feature row is
+  the correct rendering when nothing is ticked. Ties put the event first, since
+  it has a date attached and is the more perishable of the two.
 
 The admin checkbox says "Feature this product on the **portal** home page" and
 its hint spells out which page it means, because "home page" alone reads as the

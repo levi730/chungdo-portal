@@ -146,6 +146,29 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
             ->first();
     }
 
+    /**
+     * "Orders close in 12 days" for the home page. Null when the open run has
+     * no deadline, or has already shut — an expired card must not keep
+     * advertising urgency.
+     */
+    public function ordersCloseCountdown(): ?string
+    {
+        $closes = $this->openRun()?->closes_at;
+
+        if (! $closes) {
+            return null;
+        }
+
+        $days = (int) now()->startOfDay()->diffInDays($closes->copy()->startOfDay(), false);
+
+        return match (true) {
+            $days < 0 => null,
+            $days === 0 => 'Orders close today',
+            $days === 1 => 'Orders close tomorrow',
+            default => 'Orders close in '.$days.' days',
+        };
+    }
+
     /** Whether this product is accepting orders right now. */
     public function isOrderable(): bool
     {
