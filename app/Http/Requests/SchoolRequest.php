@@ -46,6 +46,7 @@ class SchoolRequest extends FormRequest
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'url' => 'nullable|url|max:255',
+            'photo' => 'nullable|file|image|max:20480',
         ];
     }
 

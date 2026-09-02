@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property int $id
@@ -21,8 +24,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $email
  * @property string $url
  */
-class School extends Model
+class School extends Model implements HasMedia
 {
+    use InteractsWithMedia;
     use SoftDeletes;
 
     /**
@@ -46,6 +50,22 @@ class School extends Model
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * One photo per school — a storefront, a class, a group shot. singleFile()
+     * so uploading a new one replaces the old rather than accumulating; a
+     * directory card shows exactly one.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('photo')->singleFile();
+    }
+
+    /** The school's photo, or null. */
+    public function photo(): ?Media
+    {
+        return $this->getMedia('photo')->first();
     }
 
     public function users(): HasMany

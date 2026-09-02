@@ -35,6 +35,19 @@ class SchoolController extends Controller
         return view('school.index', compact('all_schools', 'editable_school_ids'));
     }
 
+    /**
+     * The directory anyone can read, signed in or not — a link to hand out.
+     *
+     * Archived schools are excluded automatically: the default query respects
+     * soft deletes, and unlike index() this never asks for withTrashed.
+     */
+    public function publicDirectory()
+    {
+        $schools = School::with('media')->orderBy('name')->get();
+
+        return view('school.public', compact('schools'));
+    }
+
     public function view($id)
     {
         $school = School::findOrFail($id);
@@ -52,7 +65,8 @@ class SchoolController extends Controller
 
     public function store(SchoolRequest $request)
     {
-        $school = School::create($request->validated());
+        $school = School::create($request->safe()->except('photo'));
+        $this->syncPhoto($school, $request);
 
         return redirect()->route('school.view', $school->id)
             ->with('success', $school->name.' added.');
@@ -71,7 +85,8 @@ class SchoolController extends Controller
         $school = School::withTrashed()->findOrFail($id);
         $this->authorize('update', $school);
 
-        $school->update($request->validated());
+        $school->update($request->safe()->except('photo'));
+        $this->syncPhoto($school, $request);
 
         return redirect()->route('school.view', $school->id)
             ->with('success', $school->name.' saved.');
@@ -100,6 +115,24 @@ class SchoolController extends Controller
         $school->restore();
 
         return redirect()->route('school.index')->with('success', $school->name.' restored.');
+    }
+
+    public function deletePhoto($id)
+    {
+        $school = School::withTrashed()->findOrFail($id);
+        $this->authorize('update', $school);
+
+        $school->clearMediaCollection('photo');
+
+        return back()->with('success', 'Photo removed.');
+    }
+
+    /** singleFile() on the collection means a new upload replaces the old one. */
+    private function syncPhoto(School $school, SchoolRequest $request): void
+    {
+        if ($request->hasFile('photo')) {
+            $school->addMediaFromRequest('photo')->toMediaCollection('photo');
+        }
     }
 
     public function event($school_id, $event_slug)

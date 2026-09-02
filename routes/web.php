@@ -36,6 +36,11 @@ Route::get('/glide/{path}', [\App\Http\Controllers\ImageController::class, 'show
 
 Route::get('/first-visit', [\App\Http\Controllers\GeneralController::class, 'firstVisit'])->name('first-visit');
 
+// The public school directory — a link that can be handed to anyone, so it sits
+// outside the auth group alongside the storefront. Shows live schools only;
+// archived ones are excluded by the model's soft deletes.
+Route::get('/schools', [\App\Http\Controllers\SchoolController::class, 'publicDirectory'])->name('schools.public');
+
 // The public storefront. These are deliberately OUTSIDE the auth group — the
 // store sells to guests as well as members (docs/store-design.md), which makes
 // them the only member-facing pages in the portal a signed-out visitor can
@@ -211,6 +216,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/school/{id}', [\App\Http\Controllers\SchoolController::class, 'update'])->name('school.update');
     Route::delete('/school/{id}', [\App\Http\Controllers\SchoolController::class, 'destroy'])->name('school.destroy');
     Route::post('/school/{id}/restore', [\App\Http\Controllers\SchoolController::class, 'restore'])->name('school.restore');
+    Route::delete('/school/{id}/photo', [\App\Http\Controllers\SchoolController::class, 'deletePhoto'])->name('school.photo.delete');
     // Last, so /school/create isn't swallowed by the id.
     Route::get('/school/{id}', [\App\Http\Controllers\SchoolController::class, 'view'])->name('school.view');
     Route::get('/school', [\App\Http\Controllers\SchoolController::class, 'index'])->name('school.index');

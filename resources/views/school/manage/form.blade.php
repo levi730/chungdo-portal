@@ -30,7 +30,29 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ $creating ? route('school.store') : route('school.update', $school->id) }}">
+        {{-- The photo sits outside the main form: removing it is its own POST,
+             and HTML can't nest forms. Same shape as the event and product
+             media blocks. --}}
+        @unless($creating)
+            @php($photo = $school->photo())
+            @if($photo)
+                <div class="card mb-3">
+                    <div class="card-header"><h3 class="card-title mb-0">Current photo</h3></div>
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <img src="{{ glideCropUrlFromMedia($photo, 400, 260) }}" alt="{{ $school->name }}"
+                             style="width:200px;height:130px;object-fit:cover;border-radius:4px;">
+                        <form method="POST" action="{{ route('school.photo.delete', $school->id) }}"
+                              onsubmit="return confirm('Remove this photo?')">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-outline-danger btn-sm">Remove photo</button>
+                        </form>
+                    </div>
+                </div>
+            @endif
+        @endunless
+
+        <form method="POST" enctype="multipart/form-data"
+              action="{{ $creating ? route('school.store') : route('school.update', $school->id) }}">
             @csrf
             @unless($creating) @method('PUT') @endunless
 
@@ -99,6 +121,19 @@
                             <small class="form-hint">https:// is added if you leave it off.</small>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><h3 class="card-title mb-0">Photo</h3></div>
+                <div class="card-body">
+                    <label class="form-label">{{ ($creating || ! $school->photo()) ? 'Add a photo' : 'Replace the photo' }}</label>
+                    <input type="file" name="photo" class="form-control" accept="image/*">
+                    <small class="form-hint">
+                        Shown on the school directory. One per school — uploading a new one
+                        replaces the old. It's cropped wide, so a storefront, a class or a
+                        group shot works better than a portrait.
+                    </small>
                 </div>
             </div>
 
