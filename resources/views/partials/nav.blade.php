@@ -88,6 +88,10 @@
                                 </a>
                             </li>
                         @endcan
+                        {{-- Hidden while STORE_MENU=false. The menu only — /store
+                             stays reachable by URL, and /admin/products still
+                             works for store.manage holders. --}}
+                        @if(config('store.menu'))
                         @can('store.manage')
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
@@ -107,6 +111,7 @@
                                 </div>
                             </li>
                         @endcan
+                        @endif
                         @can('manage-users')
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
