@@ -352,6 +352,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasManyThrough(School::class, SchoolInstructor::class, 'user_id', 'id', 'id', 'school_id');
     }
 
+    /**
+     * Whether this user has any business on the school management screens —
+     * either they may add schools outright, or they instruct at one and so may
+     * edit its details (see SchoolPolicy). Used to decide whether the Schools
+     * menu shows them a management link.
+     */
+    public function managesAnySchool(): bool
+    {
+        return $this->can('school.manage') || $this->instructor_of()->exists();
+    }
+
     public function events(): BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_registrations')->withPivot(['id', 'amount_due', 'amount_paid', 'payment_id', 'checkin']);

@@ -14,9 +14,13 @@
                         </a>
                     </li>
                     @if(Auth::user())
-                        @can('event.viewAllSchoolRegistrants')
+                        {{-- Shown to anyone who can see other schools' registrants, and
+                             now also to anyone who can manage a school — instructors
+                             edit their own, so they need a way in. --}}
+                        @php($canManageSchools = Auth::user()->managesAnySchool())
+                        @if(Auth::user()->can('event.viewAllSchoolRegistrants') || $canManageSchools)
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="/schools" data-bs-toggle="dropdown"
+                            <a class="nav-link dropdown-toggle" href="{{ route('school.index') }}" data-bs-toggle="dropdown"
                                data-bs-auto-close="outside" role="button" aria-expanded="false">
                                 <span class="nav-link-icon d-md-none d-lg-inline-block"><!-- Download SVG icon from http://tabler-icons.io/i/calendar-event -->
                                     <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-event" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><rect x="4" y="5" width="16" height="16" rx="2"></rect><line x1="16" y1="3" x2="16" y2="7"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="4" y1="11" x2="20" y2="11"></line><rect x="8" y="15" width="2" height="2"></rect></svg>
@@ -34,11 +38,19 @@
                                                 <div class="text-muted small">{{ $menu->city }}, {{ $menu->state }}</div>
                                             </a>
                                         @endforeach
+
+                                        @if($canManageSchools)
+                                            <div class="dropdown-divider"></div>
+                                            <a class="dropdown-item" href="{{ route('school.index') }}">Manage Schools</a>
+                                            @can('create', App\Models\School::class)
+                                                <a class="dropdown-item" href="{{ route('school.create') }}">+ Add School</a>
+                                            @endcan
+                                        @endif
                                     </div>
                                 </div>
                             </div>
                         </li>
-                        @endcan
+                        @endif
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="/event" data-bs-toggle="dropdown"
                                data-bs-auto-close="outside" role="button" aria-expanded="false">
