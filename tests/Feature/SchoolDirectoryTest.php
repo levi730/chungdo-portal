@@ -48,12 +48,18 @@ function schoolAdmin(): User
  * -------------------------------------------------------------------- */
 
 it('lets a signed-out visitor read the directory', function () {
-    $school = directorySchool(['name' => 'Riverside Dojang', 'phone' => '555-0100']);
+    $school = directorySchool([
+        'name' => 'Riverside Dojang',
+        'address1' => '12 River Rd',
+        'url' => 'https://riverside.test',
+    ]);
 
     $this->get(route('schools.public'))
         ->assertOk()
         ->assertSee($school->name)
-        ->assertSee('555-0100');
+        // Location and website: what someone looking for a school needs.
+        ->assertSee('12 River Rd')
+        ->assertSee('riverside.test');
 });
 
 it('hides archived schools from the public directory', function () {
@@ -67,36 +73,41 @@ it('hides archived schools from the public directory', function () {
         ->assertDontSee($gone->name);
 });
 
-it('does not print email addresses on the public directory', function () {
-    $school = directorySchool(['email' => 'info@riverside.test']);
+it('publishes neither phone nor email', function () {
+    directorySchool([
+        'phone' => '555-0100',
+        'email' => 'info@riverside.test',
+        'url' => 'https://riverside.test',
+    ]);
 
     $this->get(route('schools.public'))
         ->assertOk()
-        ->assertSee('Email this school')
-        // Not shown as readable text...
-        ->assertDontSee('info@riverside.test');
+        ->assertDontSee('555-0100')
+        ->assertDontSee('info@riverside.test')
+        // The website is public by definition, so it stays.
+        ->assertSee('riverside.test');
 });
 
-it('keeps the address out of the public HTML entirely', function () {
-    // Relabelling the link is not enough: a mailto href is exactly what an
-    // address harvester reads. Neither the address nor a mailto for it may
-    // appear in the source.
-    directorySchool(['email' => 'info@riverside.test']);
+it('leaves nothing in the public HTML for a harvester to find', function () {
+    // Not obscured — absent. Neither the address, nor a mailto for it, nor an
+    // encoded copy a scraper could decode.
+    directorySchool(['phone' => '555-0100', 'email' => 'info@riverside.test']);
 
     $content = $this->get(route('schools.public'))->assertOk()->getContent();
 
     expect($content)->not->toContain('info@riverside.test')
         ->not->toContain('mailto:info@riverside.test')
-        // ...but the material to rebuild it in the browser is there.
-        ->toContain(base64_encode('info@riverside.test'));
+        ->not->toContain(base64_encode('info@riverside.test'))
+        ->not->toContain('555-0100');
 });
 
-it('shows the address as text to members, who need to read and copy it', function () {
-    $school = directorySchool(['email' => 'info@riverside.test']);
+it('shows phone and email as plain text to members', function () {
+    directorySchool(['phone' => '555-0100', 'email' => 'info@riverside.test']);
 
     $this->actingAs(schoolAdmin())
         ->get(route('school.index'))
         ->assertOk()
+        ->assertSee('555-0100')
         ->assertSee('info@riverside.test');
 });
 
