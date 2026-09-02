@@ -93,15 +93,23 @@ idempotent `ProductOrderFulfiller`, the store branches of
 minutes). The store can take money. Remaining: home page highlighting, the pick
 list / orders admin / financials export, and refunds.
 
-**No end-to-end Stripe purchase has been made yet.** Everything up to the Stripe
-boundary is tested, and the member checkout page renders with Elements mounted
-against the association test account, but no card has been run through it.
+**The whole flow is proven against a real Stripe test charge** (2026-08-31): a
+two-line $75 order, one payment row, one confirmation email, and replaying the
+webhook three ways changed nothing.
 
-Answered 2026-08-31: this first run charges to the **association** account, and
-**sales tax is undecided** — `product_orders.tax` exists and is always 0, so the
-answer stays a config change rather than a migration over financial records.
-Still open: the order-window close date and the pickup wording (both live on the
-run now, not the product).
+Deployed and live. `STORE_MENU=false` currently hides the Store nav item while
+it is being set up — the menu only; `/store` is still reachable by URL and
+`/admin/products` still works.
+
+Decided: charges go to the **association** account, and **tax stays at 0**
+(2026-09-01). `product_orders.tax` exists and `total = subtotal + tax`, so
+turning it on is a config change rather than a migration over rows holding
+money. That decision has **not** been checked with whoever handles the
+association's filings — it means "not yet", not "not owed".
+
+Remaining build-order work: the pick list, the orders admin and the financials
+export, then refunds. The pick list is the operational one — it is how the
+shirts actually get handed out.
 
 ## Event map snapshots
 

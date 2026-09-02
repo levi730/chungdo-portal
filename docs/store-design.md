@@ -476,18 +476,29 @@ Do **not** extend the `refunds` table yet — it is event-scoped
 a separate change; making it nullable in passing would put an untested branch
 under the event refund flow, which is live money.
 
+## Decided
+
+- **Sales tax: none for now** (2026-09-01). `product_orders.tax` exists and
+  always holds 0, and `total = subtotal + tax`, so switching this on later is a
+  configuration change rather than a migration over rows that already hold
+  money. **This has not been checked with whoever handles the association's
+  filings** — it is "not yet", not "not owed". A nonprofit selling merchandise
+  often still collects sales tax, and the longer money moves untaxed the more
+  awkward the correction, so it is worth an actual answer before the run closes.
+- **Stripe account: `association`** for the first run. It locks the moment a
+  charge is attempted, because refunds have to go back through the account that
+  took the money.
+- **One public page for members and guests**, with a logged-in fast path.
+  Members pay on it with Elements; guests are sent to Hosted Checkout.
+- **Order window:** the 2026 run closes 30 October. Expected arrival and the
+  pickup wording live on the run and are still blank — fill them in and they
+  appear on the product page, the cart, the checkout, the completion page and
+  the confirmation email.
+
 ## Open questions
 
-- **Sales tax.** A nonprofit selling merchandise usually still collects sales
-  tax on it. If yes, this needs Stripe Tax (a per-account setting) or a fixed
-  rate on the product, decided before the first sale — it is painful to add
-  after money has moved. Not a code question; needs an answer from whoever
-  handles the association's filings.
-- **Which Stripe account** this first run charges to.
-- **Order window close date**, and the pickup date/wording for `pickup_note`.
-- Whether members should see the same page as guests (one public page with a
-  logged-in fast path) or a separate one. One page is less code; the design
-  above assumes it.
+- Nothing blocking. Remaining build-order work is steps 7 and 8: the pick list,
+  the orders admin and the financials export, then refunds.
 
 ## Progress
 
