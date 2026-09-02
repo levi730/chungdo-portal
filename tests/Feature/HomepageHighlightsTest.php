@@ -4,6 +4,7 @@ use App\Models\Event;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\HomepageHighlights;
+use Illuminate\Support\Carbon;
 
 /**
  * Events and store items share one highlight_order scale on the home page, so a
@@ -144,9 +145,21 @@ it('shows both a featured event and a featured product on the dashboard', functi
  * -------------------------------------------------------------------- */
 
 it('counts down to an event', function () {
+    // Frozen at midday. "In two hours" is only Today if the clock isn't already
+    // near midnight — run in the evening this asserted Today and got Tomorrow,
+    // correctly, because two hours later really was the next day.
+    $this->travelTo(Carbon::parse('2026-09-01 12:00:00'));
+
     expect(highlightEvent('Soon', ['startdatetime' => now()->addDays(12)])->countdown())->toBe('In 12 days')
         ->and(highlightEvent('Tomorrow', ['startdatetime' => now()->addDay()])->countdown())->toBe('Tomorrow')
         ->and(highlightEvent('Today', ['startdatetime' => now()->addHours(2)])->countdown())->toBe('Today');
+});
+
+it('counts an event later the same evening as Today', function () {
+    // The case that actually broke: 11pm, event at 11:30pm.
+    $this->travelTo(Carbon::parse('2026-09-01 23:00:00'));
+
+    expect(highlightEvent('Tonight', ['startdatetime' => now()->addMinutes(30)])->countdown())->toBe('Today');
 });
 
 it('stops counting down once an event has passed', function () {
