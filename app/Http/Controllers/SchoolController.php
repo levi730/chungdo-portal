@@ -16,19 +16,23 @@ class SchoolController extends Controller
             abort(403);
         }
 
+        $manages = $user->can('school.manage');
+
         // withTrashed for anyone who can manage schools, so an archived one can
         // be found and restored; everyone else sees only live schools.
         $all_schools = School::query()
-            ->when($user->can('school.manage'), fn ($q) => $q->withTrashed())
+            ->when($manages, fn ($q) => $q->withTrashed())
             ->orderBy('name')
             ->get();
 
-        $editable_schools = $all_schools
-            ->filter(fn (School $school) => $user->can('update', $school))
-            ->values()
-            ->all();
+        // Which schools this user may edit, resolved in one query rather than
+        // asking the policy per school — the policy's instructor lookup would
+        // otherwise run once per card. The policy still guards the edit itself.
+        $editable_school_ids = $manages
+            ? $all_schools->pluck('id')->all()
+            : $user->instructor_of()->pluck('schools.id')->all();
 
-        return view('school.manage.list', compact('editable_schools', 'all_schools'));
+        return view('school.index', compact('all_schools', 'editable_school_ids'));
     }
 
     public function view($id)

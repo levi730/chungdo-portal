@@ -14,11 +14,12 @@
                         </a>
                     </li>
                     @if(Auth::user())
-                        {{-- Shown to anyone who can see other schools' registrants, and
-                             now also to anyone who can manage a school — instructors
-                             edit their own, so they need a way in. --}}
-                        @php($canManageSchools = Auth::user()->managesAnySchool())
-                        @if(Auth::user()->can('event.viewAllSchoolRegistrants') || $canManageSchools)
+                        {{-- Shown to every signed-in member: this is a directory of
+                             the association's schools, and /school/{id} has never
+                             had an authorization check, so the old
+                             event.viewAllSchoolRegistrants gate was only hiding the
+                             link to pages anyone could already open. Management
+                             controls inside are still gated per permission. --}}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="{{ route('school.index') }}" data-bs-toggle="dropdown"
                                data-bs-auto-close="outside" role="button" aria-expanded="false">
@@ -32,6 +33,12 @@
                             <div class="dropdown-menu">
                                 <div class="dropdown-menu-columns">
                                     <div class="dropdown-menu-column">
+                                        {{-- The directory comes first: it is the way in to
+                                             every school, and to the management controls,
+                                             which appear on it per permission. --}}
+                                        <a class="dropdown-item" href="{{ route('school.index') }}">All Schools</a>
+                                        <div class="dropdown-divider"></div>
+
                                         @foreach($school_menu as $menu)
                                             <a class="dropdown-item d-flex flex-column align-items-start" href="/school/{{$menu->id}}" style="word-wrap: break-word; white-space: normal;">
                                                 <div>{{ $menu->name }}</div>
@@ -39,18 +46,14 @@
                                             </a>
                                         @endforeach
 
-                                        @if($canManageSchools)
+                                        @can('create', App\Models\School::class)
                                             <div class="dropdown-divider"></div>
-                                            <a class="dropdown-item" href="{{ route('school.index') }}">Manage Schools</a>
-                                            @can('create', App\Models\School::class)
-                                                <a class="dropdown-item" href="{{ route('school.create') }}">+ Add School</a>
-                                            @endcan
-                                        @endif
+                                            <a class="dropdown-item" href="{{ route('school.create') }}">+ Add School</a>
+                                        @endcan
                                     </div>
                                 </div>
                             </div>
                         </li>
-                        @endif
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="/event" data-bs-toggle="dropdown"
                                data-bs-auto-close="outside" role="button" aria-expanded="false">
