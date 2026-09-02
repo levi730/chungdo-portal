@@ -67,6 +67,39 @@ it('hides archived schools from the public directory', function () {
         ->assertDontSee($gone->name);
 });
 
+it('does not print email addresses on the public directory', function () {
+    $school = directorySchool(['email' => 'info@riverside.test']);
+
+    $this->get(route('schools.public'))
+        ->assertOk()
+        ->assertSee('Email this school')
+        // Not shown as readable text...
+        ->assertDontSee('info@riverside.test');
+});
+
+it('keeps the address out of the public HTML entirely', function () {
+    // Relabelling the link is not enough: a mailto href is exactly what an
+    // address harvester reads. Neither the address nor a mailto for it may
+    // appear in the source.
+    directorySchool(['email' => 'info@riverside.test']);
+
+    $content = $this->get(route('schools.public'))->assertOk()->getContent();
+
+    expect($content)->not->toContain('info@riverside.test')
+        ->not->toContain('mailto:info@riverside.test')
+        // ...but the material to rebuild it in the browser is there.
+        ->toContain(base64_encode('info@riverside.test'));
+});
+
+it('shows the address as text to members, who need to read and copy it', function () {
+    $school = directorySchool(['email' => 'info@riverside.test']);
+
+    $this->actingAs(schoolAdmin())
+        ->get(route('school.index'))
+        ->assertOk()
+        ->assertSee('info@riverside.test');
+});
+
 it('shows no management controls on the public directory', function () {
     // Not even to an admin who happens to be signed in — this page is the
     // handout, and its job is to look the same for everyone.

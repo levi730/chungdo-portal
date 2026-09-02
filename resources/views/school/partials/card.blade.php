@@ -4,8 +4,14 @@
 
     $manageable — show View/Edit/Restore controls. False on the public page,
     which has no controls at all and never sees an archived school.
+
+    $revealEmail — print the address as text. Off on the public page, where it
+    becomes a plain "Email" link instead, so the address isn't sitting in the
+    page as harvestable text. Defaults to following $manageable, since the
+    members' index is the place staff want to read and copy addresses.
 --}}
 @php($manageable = $manageable ?? false)
+@php($revealEmail = $revealEmail ?? $manageable)
 @php($photo = $school->photo())
 
 <div class="card h-100 @if($school->trashed()) opacity-75 @endif">
@@ -47,7 +53,25 @@
                 <div><a href="tel:{{ preg_replace('/[^0-9+]/', '', $school->phone) }}">{{ $school->phone }}</a></div>
             @endif
             @if($school->email)
-                <div><a href="mailto:{{ $school->email }}">{{ $school->email }}</a></div>
+                <div>
+                    @if($revealEmail)
+                        <a href="mailto:{{ $school->email }}">{{ $school->email }}</a>
+                    @else
+                        {{-- The address is kept out of the HTML entirely and
+                             assembled in the browser. Relabelling the link is not
+                             enough on its own: a mailto href is exactly what an
+                             address harvester reads. Base64 is not secrecy — anyone
+                             can decode it — but it defeats the regex sweep that
+                             collects addresses in bulk, which is the actual threat.
+
+                             The cost is that this link needs JavaScript. Phone and
+                             website are still plain links for anyone without it. --}}
+                        <a href="#" x-data
+                           @click.prevent="window.location = 'mailto:' + atob(@js(base64_encode($school->email)))">
+                            Email this school
+                        </a>
+                    @endif
+                </div>
             @endif
             @if($school->url)
                 <div>
