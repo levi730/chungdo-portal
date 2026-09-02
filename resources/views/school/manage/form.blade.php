@@ -143,6 +143,16 @@
             </div>
         </form>
 
+        {{-- Owners live outside the form: the component saves on its own, and
+             it needs a school that exists, so it only appears when editing.
+             Gated on school.manage because this list IS who can edit the
+             school — see SchoolPolicy. --}}
+        @unless($creating)
+            @can('school.manage')
+                <livewire:admin.school-owners :school="$school" />
+            @endcan
+        @endunless
+
         {{-- Archiving is its own form, so it can't be nested in the one above. --}}
         @unless($creating)
             @can('delete', $school)
