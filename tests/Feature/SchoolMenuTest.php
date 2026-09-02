@@ -68,21 +68,37 @@ it('hides the management link from an ordinary member', function () {
 });
 
 it('still shows the schools dropdown to someone who can view registrants', function () {
-    // The pre-existing audience must not lose the menu. Asserted on the
-    // dropdown's own link rather than a school name: $school_menu is captured
-    // once in AppServiceProvider::boot(), which has already run by the time a
-    // test body creates anything, so schools made here never reach the nav.
+    // The pre-existing audience must not lose the menu.
     Permission::findOrCreate('event.viewAllSchoolRegistrants', 'web');
     $user = verifiedUser();
     $user->givePermissionTo('event.viewAllSchoolRegistrants');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+    $school = menuSchool();
+
     $this->actingAs($user)
         ->get('/dashboard')
         ->assertOk()
-        ->assertSee('nav-link-title')
+        ->assertSee($school->name)
         // ...but no management link, since they manage no school.
         ->assertDontSee('Manage Schools');
+});
+
+it('keeps an archived school out of the menu', function () {
+    Permission::findOrCreate('school.manage', 'web');
+    $user = verifiedUser();
+    $user->givePermissionTo('school.manage');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $live = menuSchool();
+    $gone = menuSchool();
+    $gone->delete();
+
+    $this->actingAs($user)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertSee($live->name)
+        ->assertDontSee($gone->name);
 });
 
 it('gives no schools dropdown to a member with neither right', function () {

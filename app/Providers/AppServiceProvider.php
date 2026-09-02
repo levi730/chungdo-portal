@@ -59,25 +59,26 @@ class AppServiceProvider extends ServiceProvider
             return "<?php echo app(" . MarkdownProcessorService::class . "::class)->render($expression); ?>";
         });
 
-        // Shared nav menus. Guarded so the app can still boot when these tables
-        // don't exist yet (fresh DB migrations, test bootstrap) — otherwise every
-        // artisan command, including `migrate`, would fail on boot.
-        try {
-            $school_data = School::orderBy('name')
-                ->get();
-
-            $event_data = Event::orderBy('startdatetime', 'DESC')
-                ->take(6)
-                ->get();
-        } catch (\Throwable $e) {
-            $school_data = collect();
-            $event_data = collect();
-        }
-
-        View::share([
-            'school_menu' => $school_data,
-            'event_menu' => $event_data,
-        ]);
+        // Nav menus, resolved when the nav actually renders rather than when the
+        // application boots.
+        //
+        // These used to be View::share()d with data queried here in boot(). That
+        // ran two queries on EVERY boot — every artisan command, every queue
+        // job, `migrate` included — which is why it needed a try/catch for the
+        // case where the tables don't exist yet. It also froze the menu for the
+        // life of the process: fine when a process serves one request, wrong
+        // under Octane or any long-lived worker, and the reason a school created
+        // in a test never appeared in the nav.
+        //
+        // A composer runs at render time, so the queries happen only on a page
+        // that has a nav, and always against current data. No guard is needed
+        // because `migrate` never renders a view.
+        View::composer('partials.nav', function ($view) {
+            $view->with([
+                'school_menu' => School::orderBy('name')->get(),
+                'event_menu' => Event::orderBy('startdatetime', 'DESC')->take(6)->get(),
+            ]);
+        });
 
         $this->bootAuth();
         $this->bootRoute();
