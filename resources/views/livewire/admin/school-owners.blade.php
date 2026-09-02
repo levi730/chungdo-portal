@@ -17,7 +17,13 @@
                    autocomplete="off">
 
             @if($this->searchResults->isNotEmpty())
-                <div class="list-group position-absolute w-100 shadow" style="z-index:20;">
+                {{-- The background is the fix, not the z-index. A .list-group is
+                     transparent by default, so an absolutely positioned one sits
+                     on top of the content below while letting it show straight
+                     through — the results and the text beneath appeared printed
+                     over each other. --}}
+                <div class="list-group position-absolute w-100 shadow rounded"
+                     style="z-index:1030; background: var(--tblr-bg-surface, #fff);">
                     @foreach($this->searchResults as $result)
                         <button type="button" class="list-group-item list-group-item-action"
                                 wire:key="result-{{ $result->id }}"
