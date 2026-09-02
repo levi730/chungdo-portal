@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SchoolRequest;
 use App\Models\Event;
 use App\Models\School;
 
@@ -10,20 +11,24 @@ class SchoolController extends Controller
     public function index()
     {
         $user = auth()->user();
+
         if (! $user) {
-            abort(500, 'user not found');
+            abort(403);
         }
 
-        $all_schools = School::orderBy('name')->get();
-        $editable_schools = [];
-        foreach ($all_schools as $school) {
-            if (auth()->user()->can('edit', $school)) {
-                $editable_schools[] = $school;
-            }
-        }
+        // withTrashed for anyone who can manage schools, so an archived one can
+        // be found and restored; everyone else sees only live schools.
+        $all_schools = School::query()
+            ->when($user->can('school.manage'), fn ($q) => $q->withTrashed())
+            ->orderBy('name')
+            ->get();
+
+        $editable_schools = $all_schools
+            ->filter(fn (School $school) => $user->can('update', $school))
+            ->values()
+            ->all();
 
         return view('school.manage.list', compact('editable_schools', 'all_schools'));
-
     }
 
     public function view($id)
@@ -34,11 +39,63 @@ class SchoolController extends Controller
         return view('school.view', compact('school', 'events'));
     }
 
+    public function create()
+    {
+        $this->authorize('create', School::class);
+
+        return view('school.manage.form', ['school' => new School(), 'creating' => true]);
+    }
+
+    public function store(SchoolRequest $request)
+    {
+        $school = School::create($request->validated());
+
+        return redirect()->route('school.view', $school->id)
+            ->with('success', $school->name.' added.');
+    }
+
     public function edit($id)
     {
-        $school = School::findOrFail($id);
+        $school = School::withTrashed()->findOrFail($id);
+        $this->authorize('update', $school);
 
-        return view('school.manage.edit', compact('school'));
+        return view('school.manage.form', compact('school') + ['creating' => false]);
+    }
+
+    public function update(SchoolRequest $request, $id)
+    {
+        $school = School::withTrashed()->findOrFail($id);
+        $this->authorize('update', $school);
+
+        $school->update($request->validated());
+
+        return redirect()->route('school.view', $school->id)
+            ->with('success', $school->name.' saved.');
+    }
+
+    /**
+     * Archive, never destroy. users.school_id, school_instructors.school_id and
+     * product_orders.pickup_school_id all point here.
+     */
+    public function destroy($id)
+    {
+        $school = School::findOrFail($id);
+        $this->authorize('delete', $school);
+
+        $school->delete();
+
+        return redirect()->route('school.index')
+            ->with('success', $school->name.' archived. Its members and records are kept.');
+    }
+
+    public function restore($id)
+    {
+        $school = School::withTrashed()->findOrFail($id);
+        $this->authorize('restore', $school);
+
+        $school->restore();
+
+        return redirect()->route('school.index')->with('success', $school->name.' restored.');
     }
 
     public function event($school_id, $event_slug)

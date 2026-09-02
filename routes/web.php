@@ -202,7 +202,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });*/
 
     Route::get('/school/{id}/event/{slug}', [\App\Http\Controllers\SchoolController::class, 'event'])->name('event.by.school');
+    // School CRUD. Editing a school belongs to its own instructors
+    // (SchoolPolicy reads school_instructors); creating and archiving need the
+    // school.manage permission. Authorization is in the policy, not here.
+    Route::get('/school/create', [\App\Http\Controllers\SchoolController::class, 'create'])->name('school.create');
+    Route::post('/school', [\App\Http\Controllers\SchoolController::class, 'store'])->name('school.store');
     Route::get('/school/{id}/edit', [\App\Http\Controllers\SchoolController::class, 'edit'])->name('school.edit');
+    Route::put('/school/{id}', [\App\Http\Controllers\SchoolController::class, 'update'])->name('school.update');
+    Route::delete('/school/{id}', [\App\Http\Controllers\SchoolController::class, 'destroy'])->name('school.destroy');
+    Route::post('/school/{id}/restore', [\App\Http\Controllers\SchoolController::class, 'restore'])->name('school.restore');
+    // Last, so /school/create isn't swallowed by the id.
     Route::get('/school/{id}', [\App\Http\Controllers\SchoolController::class, 'view'])->name('school.view');
     Route::get('/school', [\App\Http\Controllers\SchoolController::class, 'index'])->name('school.index');
 

@@ -75,6 +75,11 @@ class PermissionSeeder extends Seeder
             // The merchandise store. Held by the same people who run events so
             // it isn't gated on manage-users, which is super.admin only.
             'store.manage',
+            // Creating and archiving schools. Deliberately granted to no role
+            // by default: editing a school's own details already belongs to its
+            // instructors via SchoolPolicy, and this is the wider right to add
+            // and remove schools. Grant it to individuals as needed.
+            'school.manage',
         ];
 
         // Spatie caches the permission list for the life of the request. A

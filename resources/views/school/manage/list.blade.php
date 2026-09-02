@@ -10,12 +10,28 @@
 
         <div class="container-xl">
 
+            @if(session('success'))
+                <div class="alert alert-success">{{ session('success') }}</div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+
+            @can('create', App\Models\School::class)
+                <div class="d-flex justify-content-end mb-3">
+                    <a href="{{ route('school.create') }}" class="btn btn-primary">Add school</a>
+                </div>
+            @endcan
+
             <div class="row row-cards">
 
                 @foreach($all_schools as $school)
                 <div class="col-md-6 col-xl-3">
-                    <div class="card">
+                    <div class="card @if($school->trashed()) opacity-75 @endif">
                         <div class="card-body text-center">
+                            @if($school->trashed())
+                                <span class="badge bg-secondary text-white mb-2">Archived</span>
+                            @endif
                             <div class="mb-3">
                                 <span class="avatar avatar-xl avatar-rounded" style="background-image: url(./static/avatars/010m.jpg)"></span>
                             </div>
@@ -28,10 +44,19 @@
                                 {{$school->city}}, {{$school->state}} {{$school->zip}}
                             </div>
                         </div>
-                        <a href="{{ route('school.view', [$school->id]) }}" class="card-btn">View</a>
+                        @if($school->trashed())
+                            @can('restore', $school)
+                                <form method="POST" action="{{ route('school.restore', [$school->id]) }}">
+                                    @csrf
+                                    <button class="card-btn w-100 border-0 bg-transparent">Restore</button>
+                                </form>
+                            @endcan
+                        @else
+                            <a href="{{ route('school.view', [$school->id]) }}" class="card-btn">View</a>
 
-                        @if(in_array($school->id, Arr::pluck($editable_schools, 'id')))
-                            <a href="{{ route('school.edit', [$school->id]) }}" class="card-btn">Edit</a>
+                            @if(in_array($school->id, Arr::pluck($editable_schools, 'id')))
+                                <a href="{{ route('school.edit', [$school->id]) }}" class="card-btn">Edit</a>
+                            @endif
                         @endif
                     </div>
                 </div>
