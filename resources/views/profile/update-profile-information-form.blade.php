@@ -81,6 +81,15 @@
             <input type="email" name="email" class="form-control"
                    value="{{ old('email') ?? auth()->user()->email }}" required autocomplete="none"/>
         </div>
+        <div class="col-sm mb-3">
+            <label class="form-label">Phone</label>
+            {{-- Read the raw column, not the accessor: the accessor answers with
+                 the guardian's number when this one is blank, which would show
+                 an inherited number in a box that saves over your own. --}}
+            <input type="tel" name="phone" class="form-control"
+                   value="{{ old('phone') ?? auth()->user()->getAttributes()['phone'] ?? '' }}"
+                   placeholder="(555) 555-5555" autocomplete="none"/>
+        </div>
     </div>
 
 

@@ -67,6 +67,15 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label">Phone</label>
+                                {{-- The raw column, not $user->phone: the accessor falls back to
+                                     the guardian's number, and this box saves what it shows. --}}
+                                <input type="tel" name="phone" class="form-control"
+                                       value="{{ old('phone', $user->getAttributes()['phone'] ?? '') }}"
+                                       placeholder="(555) 555-5555" autocomplete="off">
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label">Street Address</label>
                                 <input type="text" name="address1" class="form-control"
                                        value="{{ old('address1', $user->address1) }}" autocomplete="off">

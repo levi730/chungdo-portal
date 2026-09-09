@@ -91,6 +91,18 @@
                                 </span>
                             </a>
                         </li>-->
+                        {{-- Members-only: the page shows other members' phone
+                             numbers and email addresses. --}}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('committees.index') }}">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-users-group"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1" /><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M17 10h2a2 2 0 0 1 2 2v1" /><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M3 13v-1a2 2 0 0 1 2 -2h2" /></svg>
+                                </span>
+                                <span class="nav-link-title">
+                                    Committees
+                                </span>
+                            </a>
+                        </li>
                         @can('admin.sendEmails')
                             <li class="nav-item">
                                 <a class="nav-link" href="/sendportal">
@@ -140,7 +152,7 @@
                                 </a>
                                 <div class="dropdown-menu">
                                     <a class="dropdown-item" href="{{ route('admin.users.index') }}">Users</a>
-                                    <a class="dropdown-item" href="{{ route('admin.committees.index') }}">Committees</a>
+                                    <a class="dropdown-item" href="{{ route('admin.committees.index') }}">Manage Committees</a>
                                 </div>
                             </li>
                         @endcan

@@ -32,6 +32,7 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
                 'max:255',
                 Rule::unique('users')->ignore($user->id),
             ],
+            'phone' => ['nullable', 'string', 'max:30'],
         ])->validateWithBag('updateProfileInformation');
 
         if ($input['email'] !== $user->email &&
@@ -42,6 +43,7 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
                 'firstname' => $input['firstname'],
                 'lastname' => $input['lastname'],
                 'email' => $input['email'],
+                'phone' => $input['phone'] ?: null,
                 'address1' => $input['address1'],
                 'address2' => $input['address2'],
                 'city' => $input['city'],

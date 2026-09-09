@@ -98,6 +98,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('committees.edit');
     });
 
+    // The association's committees: what each one does and who is on it.
+    // Members only — the page carries other members' phone numbers and email
+    // addresses, which is why it is not out beside the public school directory.
+    Route::get('/committees', [\App\Http\Controllers\CommitteeController::class, 'index'])
+        ->name('committees.index');
+    Route::get('/committees/{committee:slug}', [\App\Http\Controllers\CommitteeController::class, 'show'])
+        ->name('committees.show');
+
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'editProfile'])
         ->name('profile.edit');
     Route::post('/profile/avatar/{id?}', [\App\Http\Controllers\ProfileController::class, 'updateAvatar'])
