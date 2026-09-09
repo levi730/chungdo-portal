@@ -151,25 +151,45 @@ it('shows the registrants list only this event note plus the permanent ones', fu
         ->assertDontSee('Left early last time');
 });
 
-it('prints a permanent note and this event note on the registration card', function () {
+it('flags the card and prints the notes on their own page', function () {
     $winter = noteEvent('winter-card', '2026-02-01 09:00');
     $other = noteEvent('other-card', '2026-05-01 09:00');
     $subject = noteSubject($winter);
     $author = noteTaker();
 
-    $subject->notes()->create(['note' => 'Uses an inhaler', 'scope' => 'permanent', 'added_by' => $author->id]);
+    // Written temporary-first to prove the page orders permanent notes first.
     $subject->notes()->create([
         'note' => 'Not competing, broken arm', 'scope' => 'temporary',
         'event_id' => $winter->id, 'added_by' => $author->id,
     ]);
+    $subject->notes()->create(['note' => 'Uses an inhaler', 'scope' => 'permanent', 'added_by' => $author->id]);
     $subject->notes()->create([
         'note' => 'From another event', 'scope' => 'temporary',
         'event_id' => $other->id, 'added_by' => $author->id,
     ]);
 
-    $card = (new RegistrationCardPdf())->payload($winter)['cards'][0];
+    $payload = (new RegistrationCardPdf())->payload($winter);
 
-    expect($card['note'])->toBe('Uses an inhaler · Not competing, broken arm');
+    // The card says only that there is something to read.
+    expect($payload['cards'][0]['has_notes'])->toBeTrue();
+    expect($payload['cards'][0])->not->toHaveKey('note');
+
+    expect($payload['notes'])->toHaveCount(1);
+    expect($payload['notes'][0]['name'])->toBe($subject->fullname);
+    expect($payload['notes'][0]['items'])->toBe([
+        ['scope' => 'permanent', 'text' => 'Uses an inhaler'],
+        ['scope' => 'temporary', 'text' => 'Not competing, broken arm'],
+    ]);
+});
+
+it('leaves the card unflagged and the notes page empty when there is nothing to say', function () {
+    $event = noteEvent('quiet-card');
+    noteSubject($event);
+
+    $payload = (new RegistrationCardPdf())->payload($event);
+
+    expect($payload['cards'][0]['has_notes'])->toBeFalse();
+    expect($payload['notes'])->toBe([]);
 });
 
 /*

@@ -7,8 +7,11 @@
 //     "cards": [ <card>|null, ... ] }
 // A card:
 //   { "name","age","dob","sex","weight","height","address","email","phone",
-//     "school","city","state","instructors","instructor_ranks","note",
+//     "school","city","state","instructors","instructor_ranks","has_notes",
 //     "mark": { "row": 0-5, "col": 0-6, "degree": <int|none> } | null }
+// Note text does not travel on the card; it prints on its own page from
+// `notes` (per division, or top-level for the flat print):
+//   [ { "name","school","items": [ { "scope": "permanent"|"temporary", "text" } ] } ]
 
 #let doc = json(sys.inputs.data)
 #let logo_path = doc.at("logo", default: "/public/img/CDKTKD_logo.svg")
@@ -86,9 +89,9 @@
           image(logo_path, width: 1.35in),
           [
             #align(center)[#text(size: 15pt, weight: "bold")[#doc.event]]
-            #if c != none and g("note") != "" [
+            #if c != none and g("has_notes") == true [
               #v(3pt)
-              #text(size: 10pt)[#text(fill: red, weight: "bold")[Note:] #g("note")]
+              #align(center)[#text(size: 13pt, fill: red, weight: "bold")[\*\* NOTES \*\*]]
             ]
           ],
         )
@@ -139,6 +142,39 @@
   ]
 }
 
+// A full page of the notes for a set of registrants.
+//
+// The card carries only a flag. A long note used to push the fixed-height card
+// block past its bottom edge and collide the division grid with itself, and
+// there is no length a note can be trimmed to that is both safe for the layout
+// and still useful to a ring table. Flows onto further pages when it has to.
+#let notes_page(entries, heading) = {
+  align(center)[
+    #text(size: 20pt, weight: "bold", fill: red)[\*\* NOTES \*\*]
+    #v(3pt)
+    #text(size: 14pt)[#heading]
+  ]
+  v(12pt)
+  for e in entries {
+    block(breakable: false, width: 100%, below: 10pt)[
+      #text(size: 13pt, weight: "bold")[#e.name]
+      #if e.school != "" [ #h(6pt) #text(size: 10pt, fill: luma(90))[#e.school] ]
+      #v(4pt)
+      #for item in e.items [
+        #grid(
+          columns: (0.95in, 1fr), column-gutter: 6pt, align: top,
+          text(size: 8.5pt, weight: "bold",
+               fill: if item.scope == "permanent" { red } else { rgb("#b26a00") })[
+            #if item.scope == "permanent" [PERMANENT] else [THIS EVENT]
+          ],
+          text(size: 11pt)[#item.text],
+        )
+        #v(3pt)
+      ]
+    ]
+  }
+}
+
 // A dashed cut guide between the two half-sheets.
 #let cut_guide() = { v(1fr); line(length: 100%, stroke: (paint: luma(150), dash: "dashed")); v(1fr) }
 
@@ -172,6 +208,14 @@
       first = false
       full_cover(div)
     }
+    // Notes ride on top of the division's stack, straight after its cover, so
+    // whoever picks the envelope up reads them before working the ring.
+    let div_notes = div.at("notes", default: ())
+    if div_notes.len() > 0 {
+      if not first { pagebreak() }
+      first = false
+      notes_page(div_notes, div.label)
+    }
     let cards = div.cards
     for i in range(0, cards.len(), step: 2) {
       if not first { pagebreak() }
@@ -189,5 +233,11 @@
     cut_guide()
     card(if i + 1 < cards.len() { cards.at(i + 1) } else { none })
     if i + 2 < cards.len() { pagebreak() }
+  }
+  // No separators in a flat print, so the notes go at the back.
+  let all_notes = doc.at("notes", default: ())
+  if all_notes.len() > 0 {
+    if cards.len() > 0 { pagebreak() }
+    notes_page(all_notes, doc.event)
   }
 }

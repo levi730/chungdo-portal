@@ -109,12 +109,18 @@ class RegistrationCardPdf
             ->with(['user.school', 'user.rank', 'user.notes' => $this->eventNotes($event)])->get()->keyBy('id');
 
         $divisions = array_values(array_filter(array_map(function ($d) use ($regs, $event) {
-            $cards = collect($d['members'] ?? [])
+            $users = collect($d['members'] ?? [])
                 ->filter(fn ($id) => $regs->has($id) && $regs[$id]->user)
-                ->map(fn ($id) => $this->cardData($regs[$id]->user, $event))
-                ->values()->all();
+                ->map(fn ($id) => $regs[$id]->user)
+                ->values();
 
-            return $cards ? ['label' => $d['label'] ?: 'Division', 'cards' => $cards] : null;
+            $cards = $users->map(fn (User $u) => $this->cardData($u, $event))->all();
+
+            return $cards ? [
+                'label' => $d['label'] ?: 'Division',
+                'cards' => $cards,
+                'notes' => $this->notesList($users, $event),
+            ] : null;
         }, $version->data)));
 
         return [
@@ -132,25 +138,35 @@ class RegistrationCardPdf
      */
     public function payload(Event $event, bool $blanksOnly = false): array
     {
+        if ($blanksOnly) {
+            return [
+                'event' => $event->name,
+                'logo' => '/public/img/CDKTKD_logo.svg',
+                'cards' => [null, null],
+                'notes' => [],
+            ];
+        }
+
+        $users = $this->orderedUsers($event);
+
         return [
             'event' => $event->name,
             'logo' => '/public/img/CDKTKD_logo.svg',
-            'cards' => $blanksOnly ? [null, null] : $this->cardsFor($event),
+            'cards' => $this->paddedCards($users->map(fn (User $u) => $this->cardData($u, $event))->all()),
+            'notes' => $this->notesList($users, $event),
         ];
     }
 
     /**
-     * Registrants for the event as card payloads, ordered by rank/sex/age, with a
-     * trailing blank card when the count is odd (so pages stay 2-up).
+     * Pad an odd card count with a trailing blank so pages stay 2-up.
      *
+     * @param  array<int, array|null>  $cards
      * @return array<int, array|null>
      */
-    private function cardsFor(Event $event): array
+    private function paddedCards(array $cards): array
     {
-        $cards = $this->orderedUsers($event)->map(fn (User $u) => $this->cardData($u, $event))->all();
-
         if (count($cards) % 2 === 1) {
-            $cards[] = null; // pad to an even count
+            $cards[] = null;
         }
 
         return $cards;
@@ -202,7 +218,7 @@ class RegistrationCardPdf
             'state' => (string) ($school?->state ?? ''),
             'instructors' => (string) ($school?->principal_instructors_text ?? ''),
             'instructor_ranks' => (string) ($school?->principal_instructors_rank_text ?? ''),
-            'note' => $this->noteText($user, $event),
+            'has_notes' => $this->noteEntries($user, $event) !== [],
             'mark' => $this->divisionMark($user),
         ];
     }
@@ -227,21 +243,61 @@ class RegistrationCardPdf
     }
 
     /**
-     * The registrant's notes as one line for the card.
+     * One registrant's notes, permanent first.
      *
-     * The Typst templates have a single red "Note:" slot, so a member with both
-     * a permanent and an event note gets them joined rather than losing one.
+     * These no longer go on the card. A long note used to push the fixed-height
+     * card block past its bottom edge and collide the division grid with itself,
+     * and there is no length a note can be trimmed to that is both safe for the
+     * layout and useful to a ring table. The card carries a NOTES flag and the
+     * text prints on its own page.
+     *
+     * @return array<int, array{scope: string, text: string}>
      */
-    private function noteText(User $user, Event $event): string
+    private function noteEntries(User $user, Event $event): array
     {
         $notes = $user->relationLoaded('notes')
             ? $user->notes
             : $user->notes()->visibleForEvent($event)->orderBy('created_at')->get();
 
         return $notes
-            ->map(fn ($n) => trim((string) $n->note))
-            ->filter(fn ($n) => $n !== '')
-            ->implode(' · ');
+            ->sortBy(fn ($n) => $n->isPermanent() ? 0 : 1)
+            ->map(fn ($n) => ['scope' => (string) $n->scope, 'text' => trim((string) $n->note)])
+            ->filter(fn ($n) => $n['text'] !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The notes page entries for a set of registrants, in the order given and
+     * one entry per person — the tournament print can hold the same competitor
+     * twice, once for Forms and once for Sparring.
+     *
+     * @param  iterable<User>  $users
+     * @return array<int, array{name: string, school: string, items: array}>
+     */
+    private function notesList(iterable $users, Event $event): array
+    {
+        $entries = [];
+
+        foreach ($users as $user) {
+            if (isset($entries[$user->id])) {
+                continue;
+            }
+
+            $items = $this->noteEntries($user, $event);
+
+            if ($items === []) {
+                continue;
+            }
+
+            $entries[$user->id] = [
+                'name' => $user->fullname,
+                'school' => (string) ($user->school?->shortname ?? $user->school?->name ?? ''),
+                'items' => $items,
+            ];
+        }
+
+        return array_values($entries);
     }
 
     private function divisionMark(User $user): ?array
@@ -290,10 +346,18 @@ class RegistrationCardPdf
      */
     public function tournamentPayload(Event $event, string $variant, bool $blanksOnly = false): array
     {
+        if ($blanksOnly) {
+            return array_merge($this->tournamentHeader($event), [
+                'cards' => $this->tournamentBlankCards($variant),
+                'notes' => [],
+            ]);
+        }
+
+        $users = $this->orderedUsers($event);
+
         return array_merge($this->tournamentHeader($event), [
-            'cards' => $blanksOnly
-                ? $this->tournamentBlankCards($variant)
-                : $this->tournamentCards($event, $variant),
+            'cards' => $this->tournamentCards($event, $variant, $users),
+            'notes' => $this->notesList($users, $event),
         ]);
     }
 
@@ -324,13 +388,20 @@ class RegistrationCardPdf
                 ->with(['user.school', 'user.rank', 'user.notes' => $this->eventNotes($event)])->get()->keyBy('id');
 
             foreach ($version->data as $d) {
-                $cards = collect($d['members'] ?? [])
+                $users = collect($d['members'] ?? [])
                     ->filter(fn ($id) => $regs->has($id) && $regs[$id]->user)
-                    ->map(fn ($id) => $this->tournamentCardData($regs[$id]->user, $event, $discipline))
-                    ->values()->all();
+                    ->map(fn ($id) => $regs[$id]->user)
+                    ->values();
+
+                $cards = $users->map(fn (User $u) => $this->tournamentCardData($u, $event, $discipline))->all();
 
                 if ($cards) {
-                    $divisions[] = ['label' => $d['label'] ?: 'Division', 'discipline' => $discipline, 'cards' => $cards];
+                    $divisions[] = [
+                        'label' => $d['label'] ?: 'Division',
+                        'discipline' => $discipline,
+                        'cards' => $cards,
+                        'notes' => $this->notesList($users, $event),
+                    ];
                 }
             }
         }
@@ -387,9 +458,9 @@ class RegistrationCardPdf
      *
      * @return array<int, array|null>
      */
-    private function tournamentCards(Event $event, string $variant): array
+    private function tournamentCards(Event $event, string $variant, $users = null): array
     {
-        $users = $this->orderedUsers($event);
+        $users ??= $this->orderedUsers($event);
 
         $variants = match ($variant) {
             'forms' => ['forms'],
@@ -476,7 +547,7 @@ class RegistrationCardPdf
             'school' => (string) ($school?->name ?? ''),
             'instructors' => (string) ($school?->principal_instructors_text ?? ''),
             'instructor_ranks' => (string) ($school?->principal_instructors_rank_text ?? ''),
-            'note' => $this->noteText($user, $event),
+            'has_notes' => $this->noteEntries($user, $event) !== [],
             'mark' => $this->tournamentDivisionMark($user),
         ];
     }
