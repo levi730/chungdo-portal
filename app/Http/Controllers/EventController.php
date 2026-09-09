@@ -589,7 +589,16 @@ class EventController extends Controller
 
         $regs = $event->users()
             ->withPivot('id')
-            ->with(['school', 'rank', 'event_notes'])
+            // Notes are filtered here, not in the view: the registrants list is
+            // the context of one event, so it shows permanent notes plus the
+            // temporary notes written for this event and no other.
+            ->with([
+                'school',
+                'rank',
+                'notes' => fn ($q) => $q->visibleForEvent($event)
+                    ->with('added_by_user')
+                    ->orderBy('created_at', 'desc'),
+            ])
             ->leftJoinRelationship('school')
             ->leftJoinRelationship('rank')
             ->orderBy('schools.shortname')

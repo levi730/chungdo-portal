@@ -358,9 +358,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Event::class, 'event_registrations')->withPivot(['id', 'amount_due', 'amount_paid', 'payment_id', 'checkin']);
     }
 
-    public function event_notes(): HasMany
+    public function notes(): HasMany
     {
-        return $this->hasMany(UserEventNote::class, 'user_id');
+        return $this->hasMany(UserNote::class, 'user_id');
     }
 
     public function addFamilyMember($attrs)

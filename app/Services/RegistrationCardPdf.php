@@ -106,7 +106,7 @@ class RegistrationCardPdf
 
         $regIds = collect($version->data)->flatMap(fn ($d) => $d['members'] ?? [])->all();
         $regs = \App\Models\EventRegistration::whereIn('id', $regIds)->where('event_id', $event->id)
-            ->with(['user.school', 'user.rank'])->get()->keyBy('id');
+            ->with(['user.school', 'user.rank', 'user.notes' => $this->eventNotes($event)])->get()->keyBy('id');
 
         $divisions = array_values(array_filter(array_map(function ($d) use ($regs, $event) {
             $cards = collect($d['members'] ?? [])
@@ -165,7 +165,11 @@ class RegistrationCardPdf
     private function orderedUsers(Event $event)
     {
         return $event->users()
-            ->with(['school', 'rank'])
+            ->with([
+                'school',
+                'rank',
+                'notes' => $this->eventNotes($event),
+            ])
             ->leftJoinRelationship('school')
             ->leftJoinRelationship('rank')
             ->orderBy('rank_id', 'desc')
@@ -198,7 +202,7 @@ class RegistrationCardPdf
             'state' => (string) ($school?->state ?? ''),
             'instructors' => (string) ($school?->principal_instructors_text ?? ''),
             'instructor_ranks' => (string) ($school?->principal_instructors_rank_text ?? ''),
-            'note' => (string) ($user->event_notes()->where('event_id', $event->id)->value('note') ?? ''),
+            'note' => $this->noteText($user, $event),
             'mark' => $this->divisionMark($user),
         ];
     }
@@ -209,6 +213,37 @@ class RegistrationCardPdf
      *
      * @return array{row: int, col: int, degree: int|null}|null
      */
+    /**
+     * The notes that belong on this event's cards: everything permanent about
+     * the member, plus the temporary notes written for this event.
+     *
+     * Every card loader eager-loads through this, because noteText() reads the
+     * loaded relation — a loader that skipped it would print notes left over
+     * from another event.
+     */
+    private function eventNotes(Event $event): \Closure
+    {
+        return fn ($q) => $q->visibleForEvent($event)->orderBy('created_at');
+    }
+
+    /**
+     * The registrant's notes as one line for the card.
+     *
+     * The Typst templates have a single red "Note:" slot, so a member with both
+     * a permanent and an event note gets them joined rather than losing one.
+     */
+    private function noteText(User $user, Event $event): string
+    {
+        $notes = $user->relationLoaded('notes')
+            ? $user->notes
+            : $user->notes()->visibleForEvent($event)->orderBy('created_at')->get();
+
+        return $notes
+            ->map(fn ($n) => trim((string) $n->note))
+            ->filter(fn ($n) => $n !== '')
+            ->implode(' · ');
+    }
+
     private function divisionMark(User $user): ?array
     {
         $nd = $user->natural_division; // e.g. "M|40|3"
@@ -286,7 +321,7 @@ class RegistrationCardPdf
 
             $regIds = collect($version->data)->flatMap(fn ($d) => $d['members'] ?? [])->all();
             $regs = \App\Models\EventRegistration::whereIn('id', $regIds)->where('event_id', $event->id)
-                ->with(['user.school', 'user.rank'])->get()->keyBy('id');
+                ->with(['user.school', 'user.rank', 'user.notes' => $this->eventNotes($event)])->get()->keyBy('id');
 
             foreach ($version->data as $d) {
                 $cards = collect($d['members'] ?? [])
@@ -441,7 +476,7 @@ class RegistrationCardPdf
             'school' => (string) ($school?->name ?? ''),
             'instructors' => (string) ($school?->principal_instructors_text ?? ''),
             'instructor_ranks' => (string) ($school?->principal_instructors_rank_text ?? ''),
-            'note' => (string) ($user->event_notes()->where('event_id', $event->id)->value('note') ?? ''),
+            'note' => $this->noteText($user, $event),
             'mark' => $this->tournamentDivisionMark($user),
         ];
     }

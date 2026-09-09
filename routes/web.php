@@ -199,7 +199,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('users.index');
     });
 
-    Route::post('/user/{user}/add-event-note', [\App\Http\Controllers\UserController::class, 'addUserEventNote']);
+    Route::post('/user/{user}/add-note', [\App\Http\Controllers\UserController::class, 'addUserNote'])->name('user.add-note');
 
     Route::get('/test/{path}', [\App\Http\Controllers\GeneralController::class, 'test'])->where('path', '.*');
     /*Route::get('/test', function() {

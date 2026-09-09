@@ -36,7 +36,7 @@
 
             @foreach($items as $user)
 
-                <tr @if($user->event_notes->count() > 0)
+                <tr @if($user->notes->count() > 0)
                         class="bg-warning-lt"
                     @endif
                     >
@@ -56,10 +56,10 @@
 
 
                         <a href="" title="Add" data-bs-toggle="modal" data-bs-target="#user{{ $user->id }}Notes">
-                            @if($user->event_notes->count() > 0)
-                                <span class="text-danger fw-bold">{{ $user->event_notes->count() }}</span>
+                            @if($user->notes->count() > 0)
+                                <span class="text-danger fw-bold">{{ $user->notes->count() }}</span>
                             @else
-                                {{ $user->event_notes->count() }}
+                                {{ $user->notes->count() }}
                             @endif
 
 
@@ -74,7 +74,7 @@
                         </a>
 
                         @push('modals')
-                            @include('partials.event.user-event-notes-modal', ['user' => $user])
+                            @include('partials.event.user-notes-modal', ['user' => $user, 'event' => $event])
                         @endpush
 
                     </td>
