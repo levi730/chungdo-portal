@@ -121,6 +121,14 @@ class UsersTable extends DataTableComponent
             Column::make('Email', 'email')
                 ->sortable()
                 ->searchable(),
+            // The stored number, not $row->phone: the accessor falls back to the
+            // member's guardian, and it does so with a query per row that no
+            // eager load can prevent (primaryGuardian() builds a fresh one). An
+            // admin table showing what is on the row also matches the edit form.
+            Column::make('Phone', 'phone')
+                ->sortable()
+                ->searchable()
+                ->format(fn ($value, $row) => $row->getAttributes()['phone'] ?? ''),
             // Label columns (read from the eager-loaded relations) so rappasoft
             // doesn't join+alias `rank`/`school` onto the row, which would
             // shadow the relationships (and break the export's $user->rank).

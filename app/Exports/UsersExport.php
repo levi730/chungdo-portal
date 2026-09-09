@@ -23,7 +23,7 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping
 
     public function headings(): array
     {
-        return ['Last Name', 'First Name', 'Email', 'School', 'Rank', 'Student'];
+        return ['Last Name', 'First Name', 'Email', 'Phone', 'School', 'Rank', 'Student'];
     }
 
     /**
@@ -35,6 +35,8 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping
             $user->lastname,
             $user->firstname,
             $user->email,
+            // As in the table: the stored number, not the guardian fallback.
+            $user->getAttributes()['phone'] ?? null,
             $user->school?->shortname,
             $user->rank?->rank,
             $user->is_student ? 'Yes' : 'No',

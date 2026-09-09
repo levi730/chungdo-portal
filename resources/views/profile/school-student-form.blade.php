@@ -145,7 +145,7 @@
                                             200px and a max width of 1000px. Only png, jpg, gif and webp files are
                                             allowed.</small>
                                     </div>
-                                    <input type="submit" class="btn btn-primary">
+                                    <button type="submit" class="btn btn-primary">Upload Picture</button>
                                     <button class="btn btn-danger"
                                             onclick="event.preventDefault(); submit_user_form(document.getElementById('deleteAvatarForm{{$fam->id}}')); return false;">Delete Profile
                                         Picture</button>
