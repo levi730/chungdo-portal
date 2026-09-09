@@ -36,10 +36,7 @@
 
             @foreach($items as $user)
 
-                <tr @if($user->notes->count() > 0)
-                        class="bg-warning-lt"
-                    @endif
-                    >
+                <tr id="user{{ $user->id }}Row" @class(['bg-warning-lt' => $user->notes->count() > 0])>
                     <td>{{ $user->firstname }}</td>
                     <td>{{ $user->lastname }}</td>
                     <td><a href="mailto:{{ $user->email }}"> {{ $user->email }}</a></td>
@@ -56,11 +53,9 @@
 
 
                         <a href="" title="Add" data-bs-toggle="modal" data-bs-target="#user{{ $user->id }}Notes">
-                            @if($user->notes->count() > 0)
-                                <span class="text-danger fw-bold">{{ $user->notes->count() }}</span>
-                            @else
-                                {{ $user->notes->count() }}
-                            @endif
+                            {{-- Kept in step with the modal by refreshNoteCount() after an add or delete. --}}
+                            <span id="user{{ $user->id }}NoteCount"
+                                  @class(['note-count', 'text-danger fw-bold' => $user->notes->count() > 0])>{{ $user->notes->count() }}</span>
 
 
 

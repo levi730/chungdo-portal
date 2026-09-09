@@ -199,7 +199,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('users.index');
     });
 
-    Route::post('/user/{user}/add-note', [\App\Http\Controllers\UserController::class, 'addUserNote'])->name('user.add-note');
+    // Notes about a member. Writing needs the registrants right; editing and
+    // deleting belong to the author or event.admin — see UserNotePolicy.
+    Route::post('/user/{user}/notes', [\App\Http\Controllers\UserNoteController::class, 'store'])->name('user-notes.store');
+    Route::patch('/notes/{note}', [\App\Http\Controllers\UserNoteController::class, 'update'])->name('user-notes.update');
+    Route::delete('/notes/{note}', [\App\Http\Controllers\UserNoteController::class, 'destroy'])->name('user-notes.destroy');
 
     Route::get('/test/{path}', [\App\Http\Controllers\GeneralController::class, 'test'])->where('path', '.*');
     /*Route::get('/test', function() {

@@ -111,6 +111,37 @@ Remaining build-order work: the pick list, the orders admin and the financials
 export, then refunds. The pick list is the operational one — it is how the
 shirts actually get handed out.
 
+## Member notes
+
+Notes about a member are `user_notes` (`App\Models\UserNote`, `User::notes()`).
+The table was `user_event_notes` and the relation `event_notes`; they are notes
+about a *person*, and the rename is what makes room for other note subjects
+later. Nothing is polymorphic yet — if one arrives it is a `notable` on the
+subject, not on the event.
+
+- **A note is permanent or temporary, and `scope` says which.** Permanent
+  describes the person and shows everywhere ("hard of hearing"); temporary
+  belongs to one event and must not outlive it ("cannot stay for finals").
+  `scope` is explicit rather than inferred from `event_id`, because a permanent
+  note still records the event it was written at.
+- **`UserNote::visibleForEvent()` is the only filtering rule** — everything
+  permanent, plus the temporary notes for that event. Apply it in the eager
+  load. `RegistrationCardPdf` reads the *loaded* relation, so a card loader that
+  skips it prints another event's temporary notes; `eventNotes()` there is the
+  shared constraint all three loaders pass through.
+- The old form wrote no `event_id` at all, so every note predating this was
+  null and the card's `where('event_id', …)` printed nothing. The migration made
+  them all permanent (visible is the safe wrong guess); `php artisan
+  notes:classify` walks them, `--dry-run` first.
+- **Writing and changing are different rights.** Writing needs
+  `event.viewAllSchoolRegistrants` — checked in `UserNoteController`, not in the
+  route. Editing and deleting are the author or `event.admin`, in
+  `UserNotePolicy`; `super.admin` arrives through the `Gate::before` hook in
+  `AppServiceProvider` and is not repeated in the policy.
+- The modal is rendered per registrant from `event/registrants.blade.php` and
+  needs `$event`. It is the only place notes appear — not check-in, and there is
+  no member-facing view of them.
+
 ## Event map snapshots
 
 Event cards show a **cached still image** of the venue and only load the live

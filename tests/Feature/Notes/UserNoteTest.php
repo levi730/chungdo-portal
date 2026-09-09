@@ -6,6 +6,7 @@ use App\Models\UserNote;
 use App\Services\RegistrationCardPdf;
 use Carbon\Carbon;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -57,7 +58,7 @@ it('records a temporary note against the event it was written for', function () 
     $subject = noteSubject($event);
 
     $this->actingAs(noteTaker())
-        ->post("/user/{$subject->id}/add-note", [
+        ->post("/user/{$subject->id}/notes", [
             'note' => 'Needs to leave by 12:15pm at latest',
             'scope' => 'temporary',
             'event_id' => $event->id,
@@ -75,7 +76,7 @@ it('refuses a temporary note with no event, because it could never be shown', fu
     $subject = noteSubject(noteEvent());
 
     $this->actingAs(noteTaker())
-        ->postJson("/user/{$subject->id}/add-note", ['note' => 'Leaving early', 'scope' => 'temporary'])
+        ->postJson("/user/{$subject->id}/notes", ['note' => 'Leaving early', 'scope' => 'temporary'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('event_id');
 });
@@ -87,7 +88,7 @@ it('lets a member without the registrants permission write nothing', function ()
     $outsider->markEmailAsVerified();
 
     $this->actingAs($outsider)
-        ->post("/user/{$subject->id}/add-note", [
+        ->post("/user/{$subject->id}/notes", [
             'note' => 'Had two brain surgeries',
             'scope' => 'permanent',
             'event_id' => $event->id,
@@ -169,4 +170,155 @@ it('prints a permanent note and this event note on the registration card', funct
     $card = (new RegistrationCardPdf())->payload($winter)['cards'][0];
 
     expect($card['note'])->toBe('Uses an inhaler · Not competing, broken arm');
+});
+
+/*
+ * Editing and deleting.
+ *
+ * A note carries a claim about a child, so the people who can change one are
+ * narrower than the people who can write one: its author, or event.admin, or a
+ * super.admin through the Gate::before hook.
+ */
+
+function noteTakerWithRole(string $role): User
+{
+    Permission::findOrCreate('event.viewAllSchoolRegistrants', 'web');
+    Role::findOrCreate($role, 'web');
+    $user = User::factory()->create();
+    $user->markEmailAsVerified();
+    $user->givePermissionTo('event.viewAllSchoolRegistrants');
+    $user->assignRole($role);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    return $user;
+}
+
+function aNote(User $subject, User $author, array $attrs = []): UserNote
+{
+    return $subject->notes()->create(array_merge([
+        'note' => 'Gets emotional during sparring',
+        'scope' => 'permanent',
+        'added_by' => $author->id,
+    ], $attrs));
+}
+
+it('lets the author edit their own note', function () {
+    $event = noteEvent();
+    $author = noteTaker();
+    $note = aNote(noteSubject($event), $author);
+
+    // The edited flag compares timestamps, and MySQL keeps them to the second.
+    $this->travel(2)->minutes();
+
+    $this->actingAs($author)
+        ->patch("/notes/{$note->id}", [
+            'note' => 'Gets emotional during sparring, but recovers quickly',
+            'scope' => 'permanent',
+        ])
+        ->assertOk()
+        ->assertJsonPath('edited', true);
+
+    expect($note->fresh()->note)->toBe('Gets emotional during sparring, but recovers quickly');
+});
+
+it('lets an event admin edit and delete a note somebody else wrote', function () {
+    $event = noteEvent();
+    $note = aNote(noteSubject($event), noteTaker());
+    $admin = noteTakerWithRole('event.admin');
+
+    $this->actingAs($admin)
+        ->patch("/notes/{$note->id}", ['note' => 'Corrected by the event admin', 'scope' => 'permanent'])
+        ->assertOk();
+
+    expect($note->fresh()->note)->toBe('Corrected by the event admin');
+
+    $this->actingAs($admin)->delete("/notes/{$note->id}")->assertOk();
+
+    expect(UserNote::find($note->id))->toBeNull();
+});
+
+it('lets a super admin edit a note through the gate hook', function () {
+    $event = noteEvent();
+    $note = aNote(noteSubject($event), noteTaker());
+
+    $this->actingAs(noteTakerWithRole('super.admin'))
+        ->patch("/notes/{$note->id}", ['note' => 'Corrected by the super admin', 'scope' => 'permanent'])
+        ->assertOk();
+
+    expect($note->fresh()->note)->toBe('Corrected by the super admin');
+});
+
+it('stops someone who can write notes from changing another persons note', function () {
+    $event = noteEvent();
+    $note = aNote(noteSubject($event), noteTaker());
+    $colleague = noteTaker();
+
+    $this->actingAs($colleague)
+        ->patch("/notes/{$note->id}", ['note' => 'Rewritten', 'scope' => 'permanent'])
+        ->assertForbidden();
+
+    $this->actingAs($colleague)->delete("/notes/{$note->id}")->assertForbidden();
+
+    expect($note->fresh()->note)->toBe('Gets emotional during sparring');
+});
+
+it('attaches a note to the event it is made temporary from', function () {
+    $event = noteEvent();
+    $author = noteTaker();
+    $note = aNote(noteSubject($event), $author);
+
+    $this->actingAs($author)
+        ->patch("/notes/{$note->id}", [
+            'note' => 'Cannot stay for finals', 'scope' => 'temporary', 'event_id' => $event->id,
+        ])
+        ->assertOk();
+
+    expect($note->fresh()->event_id)->toBe($event->id);
+    expect($note->fresh()->isPermanent())->toBeFalse();
+});
+
+it('keeps the event as provenance when a note is made permanent', function () {
+    $event = noteEvent();
+    $author = noteTaker();
+    $note = aNote(noteSubject($event), $author, ['scope' => 'temporary', 'event_id' => $event->id]);
+
+    $this->actingAs($author)
+        ->patch("/notes/{$note->id}", ['note' => 'Hard of hearing', 'scope' => 'permanent'])
+        ->assertOk();
+
+    $fresh = $note->fresh();
+    expect($fresh->isPermanent())->toBeTrue();
+    expect($fresh->event_id)->toBe($event->id);
+    // Still shown at an event it was not written for, because it is permanent now.
+    expect($fresh->user->notes()->visibleForEvent(noteEvent('elsewhere', '2027-01-01'))->count())->toBe(1);
+});
+
+it('refuses to leave a note temporary with no event', function () {
+    $event = noteEvent();
+    $author = noteTaker();
+    $note = aNote(noteSubject($event), $author);
+
+    $this->actingAs($author)
+        ->patchJson("/notes/{$note->id}", ['note' => 'Leaving early', 'scope' => 'temporary'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('event_id');
+});
+
+it('shows edit controls only to the people who may use them', function () {
+    $event = noteEvent('control-cup');
+    $subject = noteSubject($event);
+    $author = noteTaker();
+    $note = aNote($subject, $author);
+
+    // The handlers themselves are in a shared @once script on every render, so
+    // assert on the button wired to this note, not on the function name.
+    $this->actingAs($author)
+        ->get("/event/{$event->slug}/registrants")
+        ->assertOk()
+        ->assertSee("startEditNote({$note->id})", escape: false);
+
+    $this->actingAs(noteTaker())
+        ->get("/event/{$event->slug}/registrants")
+        ->assertOk()
+        ->assertDontSee("startEditNote({$note->id})", escape: false);
 });
