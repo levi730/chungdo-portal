@@ -41,7 +41,7 @@ class UserController extends Controller
             ->with('admin-user-success', 'Zulip sync queued. Refresh in a moment for the result.');
     }
 
-    public function edit(User $user, ZulipGroupResolver $zulipGroups)
+    public function edit(Request $request, User $user, ZulipGroupResolver $zulipGroups)
     {
         return view('admin.users.edit', [
             'user' => $user,

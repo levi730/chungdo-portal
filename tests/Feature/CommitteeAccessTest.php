@@ -246,3 +246,47 @@ it('puts the coordinator in every committee zulip group', function () {
     // Reach, not membership: the coordinator is not on the published roster.
     expect($committee->members()->pluck('users.id')->all())->not->toContain($coordinator->id);
 });
+
+it('renders the admin user edit page', function () {
+    // Regression: the edit action read $request without taking it as a
+    // parameter, so every user edit page 500'd in production while the whole
+    // suite stayed green — nothing here had ever GET'd the page, only PUT to
+    // the update action. Render it.
+    $this->seed(Database\Seeders\PermissionSeeder::class);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super.admin');
+    $admin->markEmailAsVerified();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $target = User::factory()->create(['is_student' => 1]);
+
+    $this->actingAs($admin->fresh())
+        ->get(route('admin.users.edit', $target))
+        ->assertOk()
+        ->assertSee('Roles');
+});
+
+it('shows a read-only coordinator notice on the coordinator edit page', function () {
+    $this->seed(Database\Seeders\PermissionSeeder::class);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super.admin');
+    $admin->markEmailAsVerified();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $coordinator = seatCoordinator(User::factory()->create(['is_student' => 1]));
+    $other = User::factory()->create(['is_student' => 1]);
+
+    // The position appears on no checkbox, so the page has to say it some
+    // other way or there is no way to see who holds it.
+    $this->actingAs($admin->fresh())
+        ->get(route('admin.users.edit', $coordinator))
+        ->assertOk()
+        ->assertSee('Coordinator');
+
+    $this->actingAs($admin->fresh())
+        ->get(route('admin.users.edit', $other))
+        ->assertOk()
+        ->assertDontSee('coordinator position', false);
+});
