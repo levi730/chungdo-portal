@@ -91,13 +91,25 @@ class AppServiceProvider extends ServiceProvider
         Passport::useClientModel(PassportClient::class);
 
         Gate::before(function ($user, $ability) {
-            return $user->hasRole('super.admin') ? true : null;
+            if ($user->hasRole('super.admin')) {
+                return true;
+            }
+
+            // Permissions conferred by a committee the user sits on. Returning
+            // null rather than false on a miss is load-bearing: a before() hook
+            // that returns false denies outright and would short-circuit every
+            // role and policy check that follows.
+            return in_array($ability, $user->committeePermissionNames(), true)
+                ? true
+                : null;
         });
 
-        // User administration is restricted to super.admins. (The before() hook
-        // already grants them everything; this makes the ability explicit for
-        // `can:manage-users` route/nav checks and denies everyone else.)
-        Gate::define('manage-users', fn ($user) => $user->hasRole('super.admin'));
+        // User administration. The ability name is kept as the facade so the
+        // `can:manage-users` route and nav checks don't all have to move, but it
+        // is backed by a real `users.manage` permission — which is what lets it
+        // be granted to the coordinator role, or to a committee, rather than
+        // being hard-wired to super.admin.
+        Gate::define('manage-users', fn ($user) => $user->can('users.manage'));
     }
 
     public function bootRoute()

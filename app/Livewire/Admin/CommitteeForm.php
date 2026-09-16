@@ -4,11 +4,13 @@ namespace App\Livewire\Admin;
 
 use App\Models\Committee;
 use App\Models\User;
+use App\Services\RoleAssignment;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Spatie\Permission\Models\Role;
 
 class CommitteeForm extends Component
 {
@@ -25,6 +27,9 @@ class CommitteeForm extends Component
 
     /** Selected member user ids (order preserved for display). */
     public array $memberIds = [];
+
+    /** Role names this committee confers on its members. */
+    public array $roleNames = [];
 
     /** Autocomplete query for adding members. */
     public string $search = '';
@@ -43,6 +48,7 @@ class CommitteeForm extends Component
             $this->slug = (string) $committee->slug;
             $this->description = (string) $committee->description;
             $this->memberIds = $committee->members()->pluck('users.id')->all();
+            $this->roleNames = $committee->roles()->pluck('name')->all();
             // Don't auto-rewrite an established slug when the name is edited.
             $this->slugTouched = true;
         }
@@ -58,6 +64,23 @@ class CommitteeForm extends Component
     public function updatedSlug(): void
     {
         $this->slugTouched = true;
+    }
+
+    /**
+     * Roles a committee may confer, each with the permissions it carries.
+     *
+     * The permission list is shown on the form: "event.admin" says nothing on
+     * its own about what a member of this committee will be able to do.
+     */
+    #[Computed]
+    public function conferrableRoles()
+    {
+        $conferrable = RoleAssignment::conferrableByCommittee();
+
+        return Role::with('permissions:id,name')
+            ->whereIn('name', $conferrable->all())
+            ->orderBy('name')
+            ->get();
     }
 
     /**
@@ -170,6 +193,15 @@ class CommitteeForm extends Component
         if ($toDetach) {
             $committee->members()->detach($toDetach);
         }
+
+        // Re-filter against the conferrable list rather than trusting the
+        // posted names: Livewire properties are client-settable, and this is
+        // the boundary that keeps super.admin off a committee.
+        $committee->roles()->sync(
+            Role::whereIn('name', RoleAssignment::conferrableByCommittee()->intersect($this->roleNames)->all())
+                ->pluck('id')
+                ->all()
+        );
 
         session()->flash('admin-committee-success', "Committee \"{$committee->name}\" saved.");
 

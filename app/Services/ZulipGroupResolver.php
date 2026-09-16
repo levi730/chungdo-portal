@@ -69,6 +69,7 @@ class ZulipGroupResolver
             ...$this->beltRankGroups($user),
             ...$this->blackBeltGroups($user),
             ...$this->committeeGroups($user),
+            ...$this->coordinatorGroups($user),
             // Future rules go here, e.g. $this->schoolGroups($user),
             // $this->roleGroups($user), $this->instructorGroups($user), ...
         ];
@@ -109,5 +110,24 @@ class ZulipGroupResolver
             ->whereNotNull('slug')
             ->pluck('slug')
             ->all();
+    }
+
+    /**
+     * The coordinator sits in every committee's group.
+     *
+     * This is a reach rule, not a membership one: the coordinator is not added
+     * to `committee_user`, so they don't appear on any committee's published
+     * roster and confer nothing on themselves through
+     * {@see \App\Models\User::committeePermissionNames()} — their portal
+     * access comes from the `coordinator` role. This only puts them in the
+     * rooms, which is the point: the position has to be able to read and post
+     * anywhere the committees are talking.
+     *
+     * Because the sync removes as well as adds, handing the role to someone
+     * else moves the Zulip memberships with it on the next sync.
+     */
+    private function coordinatorGroups(User $user): array
+    {
+        return $user->hasRole('coordinator') ? $this->committeeSlugs() : [];
     }
 }

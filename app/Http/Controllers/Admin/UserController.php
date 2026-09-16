@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncZulipJob;
 use App\Models\User;
+use App\Services\RoleAssignment;
+use App\Services\ZulipGroupResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -12,13 +14,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
-use App\Services\ZulipGroupResolver;
-use Spatie\Permission\Models\Role;
 
 /**
- * Super-admin user administration: search users and edit their profile data,
- * roles, and password. Access is gated by the `manage-users` ability
- * (super.admin only) on the route group.
+ * User administration: search users and edit their profile data, roles, and
+ * password. Access is gated by the `manage-users` ability on the route group —
+ * super.admin and the coordinator. Which roles the editor may actually hand out
+ * is narrower still; see {@see \App\Services\RoleAssignment}.
  */
 class UserController extends Controller
 {
@@ -43,7 +44,7 @@ class UserController extends Controller
     {
         return view('admin.users.edit', [
             'user' => $user,
-            'allRoles' => Role::orderBy('name')->pluck('name'),
+            'allRoles' => RoleAssignment::assignableBy($request->user()),
             // Read-only preview of what OIDC would sync to Zulip on next login.
             'zulipBeltRank' => $user->rank?->rank,
             'zulipGroups' => $zulipGroups->for($user),
@@ -70,7 +71,7 @@ class UserController extends Controller
             'weight' => ['nullable', 'integer', 'min:0', 'max:1500'],
             'sex' => ['nullable', 'string', 'max:1'],
             'roles' => ['array'],
-            'roles.*' => [Rule::in(Role::pluck('name')->all())],
+            'roles.*' => [Rule::in(RoleAssignment::assignableBy($request->user())->all())],
             'password' => ['nullable', 'confirmed', PasswordRule::defaults()],
             'sync_to_zulip' => ['nullable', 'boolean'],
         ]);
@@ -133,6 +134,13 @@ class UserController extends Controller
             session()->flash('admin-user-warning', 'You cannot remove super.admin from your own account.');
         }
 
-        $user->syncRoles($roles);
+        // Roles the editor isn't allowed to hand out were never rendered on the
+        // form, so they come back absent rather than unticked. Carry them over
+        // untouched — otherwise a coordinator opening a super.admin's account
+        // and pressing Save would quietly strip it.
+        $assignable = RoleAssignment::assignableBy($request->user());
+        $untouchable = $user->getRoleNames()->reject(fn ($name) => $assignable->contains($name));
+
+        $user->syncRoles($untouchable->merge($roles)->unique()->all());
     }
 }

@@ -111,6 +111,53 @@ Remaining build-order work: the pick list, the orders admin and the financials
 export, then refunds. The pick list is the operational one — it is how the
 shirts actually get handed out.
 
+## Groups and permissions
+
+Committees are three things at once: a published directory, a Zulip group (via
+the slug), and — since this change — a **holder of portal roles**.
+
+- **Membership is the grant.** `committee_role` maps a committee to Spatie
+  roles; `User::committeePermissionNames()` flattens those to permission names
+  and the `Gate::before` hook in `AppServiceProvider` answers `can()` with them.
+  Nothing is written onto the user, so dropping someone from a committee drops
+  the access in the same act — there is no sync and nothing to reconcile.
+- **That hook must return `null` on a miss, never `false`.** A `before()` hook
+  returning false denies outright and short-circuits every role and policy check
+  behind it.
+- **Authorize on permissions, not role names.** A committee confers permissions
+  but not the role *name*, so `hasRole('event.admin')` is false for an event
+  admin by committee. `UserNotePolicy` was the one place doing this and now
+  checks `event.manage`.
+- The Events Committee (`events-committee`) holds `event.admin`. The 16 people
+  holding that role directly were **left alone** — both paths work, so who is an
+  event admin currently has two sources of truth.
+
+**The coordinator** is the top of the organisation chart and deliberately not
+the top of the technical one. It is a normal role with an **explicit permission
+allowlist** in `PermissionSeeder` — it does *not* get super.admin's
+`Gate::before` bypass, which is what would hand it every future ability too. The
+cost is real and intended: add a permission and forget that list, and the
+coordinator quietly cannot do the new thing. Add it to the list; do not widen
+the list to a wildcard.
+
+- `manage-users` is still the ability name the routes and nav check, but it is
+  now backed by a real `users.manage` permission so a role can hold it.
+- **Only a super.admin may grant or revoke `super.admin`, and no committee may
+  confer it** — `App\Services\RoleAssignment`. Without that guard, giving the
+  coordinator user administration is a one-click escalation to the technical
+  tier. `UserController::syncRoles()` also carries over roles the editor was
+  never shown, so a coordinator saving a super.admin's account does not strip it.
+- The coordinator sits in **every committee's Zulip group** without being on any
+  roster (`ZulipGroupResolver::coordinatorGroups()`). Reach, not membership. The
+  sync removes as well as adds, so handing the role on moves the groups with it.
+- Master David Blevins (user 38) holds it. His direct `event.admin` is now
+  redundant but was left in place.
+
+Needs `php artisan db:seed --class=PermissionSeeder` to exist anywhere — it has
+been run on the local dev and test databases only. The seeder still reports
+`cms.html`, `cms.manage` and `school.payments` as unmanaged: they are in no role,
+on no user, and referenced nowhere in code.
+
 ## Member notes
 
 Notes about a member are `user_notes` (`App\Models\UserNote`, `User::notes()`).

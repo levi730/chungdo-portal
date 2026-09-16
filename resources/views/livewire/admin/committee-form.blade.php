@@ -39,6 +39,43 @@
             </div>
         </div>
 
+        {{-- Portal access --}}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Portal access</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-secondary">
+                        Roles every member of this committee holds for as long as they are on it.
+                        Nothing is written onto their account &mdash; removing someone from the
+                        committee removes this access at the same moment.
+                    </p>
+
+                    @foreach ($this->conferrableRoles as $role)
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   value="{{ $role->name }}" wire:model="roleNames">
+                            <span class="form-check-label">
+                                <strong>{{ $role->name }}</strong>
+                                @if ($role->permissions->isNotEmpty())
+                                    <span class="d-block text-secondary small">
+                                        {{ $role->permissions->pluck('name')->implode(', ') }}
+                                    </span>
+                                @endif
+                            </span>
+                        </label>
+                    @endforeach
+
+                    @if (empty($this->roleNames))
+                        <div class="text-secondary small mt-2">
+                            No extra access &mdash; this committee is a directory and Zulip group only.
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
         {{-- Members --}}
         <div class="col-12">
             <div class="card">

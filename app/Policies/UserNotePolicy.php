@@ -10,9 +10,14 @@ use Illuminate\Auth\Access\HandlesAuthorization;
  * Who may change a note once it is written.
  *
  * The author, because a note is usually corrected by the person who noticed the
- * thing; and event.admin, because the people running an event have to be able to
- * strike a note that is wrong about a child in front of them, and the instructor
- * who wrote it may be in a ring.
+ * thing; and anyone with event.manage, because the people running an event have
+ * to be able to strike a note that is wrong about a child in front of them, and
+ * the instructor who wrote it may be in a ring.
+ *
+ * This checks the permission rather than hasRole('event.admin') on purpose: an
+ * event admin by committee membership holds event.manage but not the role name,
+ * and a role check would silently exclude them. The event.admin role carries
+ * event.manage, so nobody who could edit a note before can't now.
  *
  * super.admin passes everything through the Gate::before hook in
  * AppServiceProvider, so it isn't repeated here.
@@ -38,6 +43,6 @@ class UserNotePolicy
     private function authorOrEventAdmin(User $user, UserNote $note): bool
     {
         return (int) $note->added_by === (int) $user->id
-            || $user->hasRole('event.admin');
+            || $user->can('event.manage');
     }
 }

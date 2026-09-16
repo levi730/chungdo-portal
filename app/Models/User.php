@@ -40,6 +40,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
     ];
 
+    /** Request-lifetime memo for {@see self::committeePermissionNames()}. */
+    protected ?array $committeePermissionCache = null;
+
     protected $appends = ['full_name', 'age', 'height_text', 'natural_division', 'natural_division_text'];
 
     /**
@@ -340,6 +343,32 @@ class User extends Authenticatable implements MustVerifyEmail
     public function committees(): BelongsToMany
     {
         return $this->belongsToMany(Committee::class)->withTimestamps();
+    }
+
+    /**
+     * Permission names this user holds by sitting on a committee.
+     *
+     * Committees confer roles (see {@see Committee::roles()}); this flattens
+     * those to permission names so the Gate::before hook in AppServiceProvider
+     * can answer a `can()` check with them. Nothing is written onto the user:
+     * dropping someone from the committee drops the access in the same act.
+     *
+     * Note this grants *permissions*, not roles — `hasRole('event.admin')` stays
+     * false for someone who is only an event admin by committee. Authorize on
+     * permissions, not role names, or committee members will be missed.
+     *
+     * Memoized for the request: Gate::before fires on every authorization check.
+     */
+    public function committeePermissionNames(): array
+    {
+        return $this->committeePermissionCache ??= $this->committees()
+            ->with('roles.permissions:id,name')
+            ->get()
+            ->flatMap(fn (Committee $committee) => $committee->roles->flatMap->permissions)
+            ->pluck('name')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function school(): BelongsTo

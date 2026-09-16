@@ -64,6 +64,30 @@ class PermissionSeeder extends Seeder
                     'store.manage',
                 ],
             ],
+            [
+                // The association's coordinator: the top of the organisation
+                // chart, and deliberately NOT the top of the technical one.
+                //
+                // super.admin passes everything through the Gate::before hook,
+                // future abilities included — that is the developer tier and the
+                // coordinator does not get it. This role instead names every
+                // permission it holds, so a new permission is unreachable until
+                // somebody decides it belongs here. The cost of that choice is
+                // real: add a permission and forget this list, and the
+                // coordinator quietly cannot do the new thing. Adding to the
+                // list is the fix; widening it to a wildcard is not.
+                'name' => 'coordinator',
+                'permissions' => [
+                    'event.viewAllSchoolRegistrants',
+                    'event.reorganizeDivisions',
+                    'event.manageAddons',
+                    'event.approveRefunds',
+                    'event.manage',
+                    'store.manage',
+                    'school.manage',
+                    'users.manage',
+                ],
+            ],
         ];
 
         $this->permissions = [
@@ -73,13 +97,18 @@ class PermissionSeeder extends Seeder
             'event.approveRefunds',
             'event.manage',
             // The merchandise store. Held by the same people who run events so
-            // it isn't gated on manage-users, which is super.admin only.
+            // it isn't gated on manage-users, which is a narrower circle.
             'store.manage',
             // Creating and archiving schools. Deliberately granted to no role
             // by default: editing a school's own details already belongs to its
             // instructors via SchoolPolicy, and this is the wider right to add
             // and remove schools. Grant it to individuals as needed.
             'school.manage',
+            // Backs the `manage-users` ability defined in AppServiceProvider —
+            // the admin users list, member editing, committees and schools.
+            // It exists as a permission so it can be held by a role (the
+            // coordinator) instead of being hard-wired to super.admin.
+            'users.manage',
         ];
 
         // Spatie caches the permission list for the life of the request. A
