@@ -68,25 +68,25 @@ class PermissionSeeder extends Seeder
                 // The association's coordinator: the top of the organisation
                 // chart, and deliberately NOT the top of the technical one.
                 //
-                // super.admin passes everything through the Gate::before hook,
-                // future abilities included — that is the developer tier and the
-                // coordinator does not get it. This role instead names every
-                // permission it holds, so a new permission is unreachable until
-                // somebody decides it belongs here. The cost of that choice is
-                // real: add a permission and forget this list, and the
-                // coordinator quietly cannot do the new thing. Adding to the
-                // list is the fix; widening it to a wildcard is not.
+                // DELIBERATELY EMPTY. Do not give this role permissions.
+                //
+                // Who holds the position is config/portal.php's
+                // coordinator_user_id, and what it may do is that file's
+                // coordinator_permissions — see App\Services\Coordinator. The
+                // role is granted to nobody and confers nothing.
+                //
+                // Grants here would defeat that entirely: Spatie's own
+                // Gate::before hook honours a role's permissions directly, so
+                // anyone able to write a model_has_roles row would become
+                // coordinator without config saying so. An empty list keeps a
+                // stray assignment inert, and the revoke loop below strips the
+                // grants this role carried before the position moved to config.
+                //
+                // Kept rather than deleted so that removing its grants happens
+                // on the next seed run, on every environment, without anyone
+                // having to remember a manual cleanup.
                 'name' => 'coordinator',
-                'permissions' => [
-                    'event.viewAllSchoolRegistrants',
-                    'event.reorganizeDivisions',
-                    'event.manageAddons',
-                    'event.approveRefunds',
-                    'event.manage',
-                    'store.manage',
-                    'school.manage',
-                    'users.manage',
-                ],
+                'permissions' => [],
             ],
         ];
 

@@ -3,6 +3,7 @@
 use App\Models\Committee;
 use App\Models\User;
 use App\Models\UserNote;
+use App\Services\Coordinator;
 use App\Services\RoleAssignment;
 use App\Services\ZulipGroupResolver;
 use Spatie\Permission\Models\Permission;
@@ -22,6 +23,18 @@ use Spatie\Permission\PermissionRegistrar;
  * "super duper admin but not super.admin" is only worth anything if the second
  * half actually holds.
  */
+/**
+ * Make $user the coordinator the way production does it — by config, not by a
+ * role assignment. Nothing is written to model_has_roles, on purpose.
+ */
+function seatCoordinator(User $user): User
+{
+    config(['portal.coordinator_user_id' => $user->id]);
+    app()->forgetInstance(Coordinator::class);
+
+    return $user->fresh();
+}
+
 function committeeWithRole(string $roleName, array $permissions = []): Committee
 {
     static $n = 0;
@@ -114,10 +127,11 @@ it('lets a committee-granted event admin edit someone elses note', function () {
 it('gives the coordinator user administration but not the technical tier', function () {
     $this->seed(Database\Seeders\PermissionSeeder::class);
 
-    $coordinator = User::factory()->create();
-    $coordinator->assignRole('coordinator');
+    $coordinator = seatCoordinator(User::factory()->create());
     app(PermissionRegistrar::class)->forgetCachedPermissions();
-    $coordinator = $coordinator->fresh();
+
+    // No role assignment anywhere — the position is config alone.
+    expect($coordinator->hasRole('coordinator'))->toBeFalse();
 
     expect($coordinator->can('manage-users'))->toBeTrue()
         ->and($coordinator->can('users.manage'))->toBeTrue()
@@ -134,24 +148,70 @@ it('gives the coordinator user administration but not the technical tier', funct
 it('will not let a coordinator hand out super.admin', function () {
     $this->seed(Database\Seeders\PermissionSeeder::class);
 
-    $coordinator = User::factory()->create();
-    $coordinator->assignRole('coordinator');
+    $coordinator = seatCoordinator(User::factory()->create());
     $superAdmin = User::factory()->create();
     $superAdmin->assignRole('super.admin');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-    expect(RoleAssignment::assignableBy($coordinator->fresh())->contains('super.admin'))->toBeFalse()
-        ->and(RoleAssignment::assignableBy($coordinator->fresh())->contains('coordinator'))->toBeTrue()
+    expect(RoleAssignment::assignableBy($coordinator)->contains('super.admin'))->toBeFalse()
         ->and(RoleAssignment::assignableBy($superAdmin->fresh())->contains('super.admin'))->toBeTrue();
 
     expect(RoleAssignment::conferrableByCommittee()->contains('super.admin'))->toBeFalse();
 });
 
+it('offers the coordinator role on no surface at all', function () {
+    $this->seed(Database\Seeders\PermissionSeeder::class);
+
+    $superAdmin = User::factory()->create();
+    $superAdmin->assignRole('super.admin');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    // Not even a super.admin may tick it, and no committee may confer it: the
+    // role row exists only to carry the permission list.
+    expect(RoleAssignment::assignableBy($superAdmin->fresh())->contains('coordinator'))->toBeFalse()
+        ->and(RoleAssignment::conferrableByCommittee()->contains('coordinator'))->toBeFalse();
+});
+
+it('moves the position when the config changes, and vacates it when unset', function () {
+    $this->seed(Database\Seeders\PermissionSeeder::class);
+
+    $first = User::factory()->create();
+    $second = User::factory()->create();
+
+    seatCoordinator($first);
+    expect($first->fresh()->can('users.manage'))->toBeTrue()
+        ->and($second->fresh()->can('users.manage'))->toBeFalse();
+
+    seatCoordinator($second);
+    expect($second->fresh()->can('users.manage'))->toBeTrue()
+        ->and($first->fresh()->can('users.manage'))->toBeFalse();
+
+    // Unset fails closed rather than open.
+    config(['portal.coordinator_user_id' => null]);
+    app()->forgetInstance(Coordinator::class);
+    expect($first->fresh()->can('users.manage'))->toBeFalse()
+        ->and($second->fresh()->can('users.manage'))->toBeFalse();
+});
+
+it('grants nothing when a stray coordinator role assignment exists', function () {
+    $this->seed(Database\Seeders\PermissionSeeder::class);
+
+    // Somebody assigns the role directly in the database. It must confer
+    // nothing — config is the only thing that seats the position.
+    $impostor = User::factory()->create();
+    $impostor->assignRole('coordinator');
+    config(['portal.coordinator_user_id' => null]);
+    app()->forgetInstance(Coordinator::class);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    expect($impostor->fresh()->can('users.manage'))->toBeFalse()
+        ->and($impostor->fresh()->can('manage-users'))->toBeFalse();
+});
+
 it('keeps a role the editor cannot assign when that editor saves the form', function () {
     $this->seed(Database\Seeders\PermissionSeeder::class);
 
-    $coordinator = User::factory()->create();
-    $coordinator->assignRole('coordinator');
+    $coordinator = seatCoordinator(User::factory()->create());
     $coordinator->markEmailAsVerified();
 
     $target = User::factory()->create(['is_student' => 1]);
@@ -176,13 +236,10 @@ it('keeps a role the editor cannot assign when that editor saves the form', func
 
 it('puts the coordinator in every committee zulip group', function () {
     $committee = committeeWithRole('committee.events5', []);
-    Role::findOrCreate('coordinator', 'web');
 
-    $coordinator = User::factory()->create();
-    $coordinator->assignRole('coordinator');
-    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $coordinator = seatCoordinator(User::factory()->create());
 
-    $groups = app(ZulipGroupResolver::class)->for($coordinator->fresh());
+    $groups = app(ZulipGroupResolver::class)->for($coordinator);
 
     expect($groups)->toContain($committee->slug);
 

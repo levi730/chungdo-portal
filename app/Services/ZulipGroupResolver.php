@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Coordinator;
 use Illuminate\Support\Str;
 
 /**
@@ -118,16 +119,17 @@ class ZulipGroupResolver
      * This is a reach rule, not a membership one: the coordinator is not added
      * to `committee_user`, so they don't appear on any committee's published
      * roster and confer nothing on themselves through
-     * {@see \App\Models\User::committeePermissionNames()} — their portal
-     * access comes from the `coordinator` role. This only puts them in the
-     * rooms, which is the point: the position has to be able to read and post
-     * anywhere the committees are talking.
+     * {@see \App\Models\User::committeePermissionNames()}. This only puts them
+     * in the rooms, which is the point: the position has to be able to read and
+     * post anywhere the committees are talking.
      *
-     * Because the sync removes as well as adds, handing the role to someone
-     * else moves the Zulip memberships with it on the next sync.
+     * Who holds it comes from config, not from a role assignment
+     * ({@see \App\Services\Coordinator}). Because the sync removes as well as
+     * adds, changing that config and deploying moves the Zulip memberships with
+     * it on the next sync — including removing the previous holder.
      */
     private function coordinatorGroups(User $user): array
     {
-        return $user->hasRole('coordinator') ? $this->committeeSlugs() : [];
+        return app(Coordinator::class)->holds($user) ? $this->committeeSlugs() : [];
     }
 }

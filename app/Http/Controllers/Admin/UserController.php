@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncZulipJob;
 use App\Models\User;
+use App\Services\Coordinator;
 use App\Services\RoleAssignment;
 use App\Services\ZulipGroupResolver;
 use Carbon\Carbon;
@@ -45,6 +46,9 @@ class UserController extends Controller
         return view('admin.users.edit', [
             'user' => $user,
             'allRoles' => RoleAssignment::assignableBy($request->user()),
+            // Shown as a read-only notice: the position comes from config, so
+            // it appears on no checkbox and would otherwise be invisible here.
+            'isCoordinator' => app(Coordinator::class)->holds($user),
             // Read-only preview of what OIDC would sync to Zulip on next login.
             'zulipBeltRank' => $user->rank?->rank,
             'zulipGroups' => $zulipGroups->for($user),

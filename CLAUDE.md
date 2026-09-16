@@ -132,14 +132,28 @@ the slug), and — since this change — a **holder of portal roles**.
   holding that role directly were **left alone** — both paths work, so who is an
   event admin currently has two sources of truth.
 
-**The coordinator** is the top of the organisation chart and deliberately not
-the top of the technical one. It is a normal role with an **explicit permission
-allowlist** in `PermissionSeeder` — it does *not* get super.admin's
-`Gate::before` bypass, which is what would hand it every future ability too. The
-cost is real and intended: add a permission and forget that list, and the
-coordinator quietly cannot do the new thing. Add it to the list; do not widen
-the list to a wildcard.
+**The coordinator is config, not a role.** It is the top of the organisation
+chart and deliberately not the top of the technical one — it does *not* get
+super.admin's `Gate::before` bypass, which is what hands out every future
+ability automatically.
 
+- **Who** holds it: `portal.coordinator_user_id` (`COORDINATOR_USER_ID` in
+  `.env`), a user id rather than an email so a changed address cannot silently
+  detach the position. **What** it may do: `portal.coordinator_permissions`, an
+  explicit allowlist. Both in `config/portal.php`; `App\Services\Coordinator`
+  reads them and the `Gate::before` hook grants from there.
+- **There is no `model_has_roles` row, and the `coordinator` role is kept
+  permanently EMPTY.** That is the whole point and it is easy to undo by
+  accident: Spatie's own `Gate::before` honours a role's permissions directly,
+  so the moment that role has grants again, anyone who can write a
+  model_has_roles row is coordinator without config saying so. The seeder
+  declares it with `'permissions' => []`; leave it that way.
+- Nothing can hand it out — not the admin user form, not a committee, not a
+  super.admin. `RoleAssignment::NEVER_ASSIGNABLE` withholds it from every
+  surface. Moving the position means editing config and deploying.
+- The allowlist costs vigilance by design: add a permission and forget
+  `coordinator_permissions`, and the coordinator quietly cannot do the new
+  thing. Add it to the list; do not widen the list to a wildcard.
 - `manage-users` is still the ability name the routes and nav check, but it is
   now backed by a real `users.manage` permission so a role can hold it.
 - **Only a super.admin may grant or revoke `super.admin`, and no committee may
@@ -149,9 +163,11 @@ the list to a wildcard.
   never shown, so a coordinator saving a super.admin's account does not strip it.
 - The coordinator sits in **every committee's Zulip group** without being on any
   roster (`ZulipGroupResolver::coordinatorGroups()`). Reach, not membership. The
-  sync removes as well as adds, so handing the role on moves the groups with it.
-- Master David Blevins (user 38) holds it. His direct `event.admin` is now
-  redundant but was left in place.
+  sync removes as well as adds, so changing the config id moves the groups with
+  it on the next sync, including removing the previous holder.
+- Master David Blevins (user 38) holds it. His `event.admin` is now redundant
+  but was left in place. The user edit page shows the position as a read-only
+  notice, since it appears on no checkbox.
 
 Needs `php artisan db:seed --class=PermissionSeeder` to exist anywhere — it has
 been run on the local dev and test databases only. The seeder still reports

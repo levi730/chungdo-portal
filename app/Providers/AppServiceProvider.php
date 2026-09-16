@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Event;
 use App\Models\School;
+use App\Services\Coordinator;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
@@ -90,15 +91,30 @@ class AppServiceProvider extends ServiceProvider
         // to preserve the OIDC nonce (see App\Models\PassportClient).
         Passport::useClientModel(PassportClient::class);
 
+        $this->app->singleton(Coordinator::class);
+
         Gate::before(function ($user, $ability) {
             if ($user->hasRole('super.admin')) {
+                return true;
+            }
+
+            // The coordinator, resolved from config rather than from a role
+            // assignment — see App\Services\Coordinator for why there is no
+            // model_has_roles row to find.
+            $coordinator = app(Coordinator::class);
+
+            if (
+                $coordinator->holds($user)
+                && in_array($ability, $coordinator->permissionNames(), true)
+            ) {
                 return true;
             }
 
             // Permissions conferred by a committee the user sits on. Returning
             // null rather than false on a miss is load-bearing: a before() hook
             // that returns false denies outright and would short-circuit every
-            // role and policy check that follows.
+            // role and policy check that follows. The coordinator branch above
+            // falls through to here for the same reason.
             return in_array($ability, $user->committeePermissionNames(), true)
                 ? true
                 : null;

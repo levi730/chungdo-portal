@@ -132,6 +132,13 @@
                                     <span class="form-check-label">{{ $role }}</span>
                                 </label>
                             @endforeach
+                            @if ($isCoordinator)
+                                <div class="alert alert-info mt-3 mb-0">
+                                    <strong>Coordinator.</strong> This member holds the coordinator
+                                    position, which is set in configuration rather than here and
+                                    cannot be granted or removed from this page.
+                                </div>
+                            @endif
                             @if ($user->is(auth()->user()))
                                 <div class="form-hint mt-2">You cannot remove <code>super.admin</code> from your own account.</div>
                             @endif
