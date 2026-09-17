@@ -162,6 +162,38 @@ class ZulipSyncService
     }
 
     /**
+     * Decide what to do about a committee slug with no Zulip user group yet,
+     * and say so in the summary. Returns whether the channel step should carry
+     * on with this slug.
+     *
+     * Three different situations look identical here:
+     *
+     *  - Nobody is in the committee. The group step skips creating an empty
+     *    group, and an empty channel is not wanted either. Not an error.
+     *  - This is a dry run and the group step planned to create the group. It
+     *    will exist by the time a real run reaches this point, because groups
+     *    are reconciled before channels. Reporting "no matching group" here
+     *    would be a scary false error on exactly the run people use to check a
+     *    new committee before it goes live.
+     *  - A real run got here with members and no group, which means the group
+     *    step failed. That one is worth an error.
+     */
+    private function groupWillExist(string $slug, array $members, bool $dryRun, array &$summary): bool
+    {
+        if (empty($members)) {
+            return false;
+        }
+
+        if ($dryRun && ($summary['groups'][$slug]['create'] ?? false)) {
+            return true;
+        }
+
+        $summary['errors'][] = "Channel {$slug}: no matching Zulip user group, skipped.";
+
+        return false;
+    }
+
+    /**
      * May this environment write to Zulip?
      *
      * Unset config means "production only", which is the safe default for a
@@ -233,17 +265,19 @@ class ZulipSyncService
             $members = array_values($desired[$slug] ?? []);
             $groupId = $groupIds->get($slug);
 
-            if (! $groupId) {
-                $summary['errors'][] = "Channel {$slug}: no matching Zulip user group, skipped.";
-
+            if (! $groupId && ! $this->groupWillExist($slug, $members, $dryRun, $summary)) {
                 continue;
             }
 
-            $settings = [
+            // On a dry run a group the group step only *planned* to create has
+            // no id yet, so there is nothing to point the channel's permissions
+            // at. Nothing is written on a dry run anyway — the plan below still
+            // reports the channel and its members.
+            $settings = $groupId ? [
                 'can_subscribe_group' => (int) $groupId,
                 'can_add_subscribers_group' => (int) $groupId,
                 'can_send_message_group' => (int) $groupId,
-            ];
+            ] : [];
 
             try {
                 $stream = $streams->get($slug);
