@@ -54,6 +54,14 @@ return [
         // Create a channel for a committee that doesn't have one yet.
         'create_committee_channels' => (bool) env('ZULIP_CREATE_COMMITTEE_CHANNELS', true),
 
+        // May this environment write to Zulip? There is only one Zulip, and the
+        // sync reconciles by removal, so a real run from a developer machine
+        // would reshape production to match a local database. Leave unset and
+        // writes happen in production only; a write run anywhere else is
+        // demoted to a dry run. Set true to sync from elsewhere deliberately,
+        // or false to make even production read-only.
+        'allow_writes' => env('ZULIP_SYNC_ALLOW_WRITES'),
+
         // Composite committee groups: a Zulip group (and channel) whose members
         // are everyone in the listed committees, instead of a roster of its
         // own. Membership is derived on every sync, so joining or leaving a

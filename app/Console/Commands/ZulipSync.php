@@ -30,6 +30,7 @@ class ZulipSync extends Command
         if ($dryRun) {
             $this->warn('DRY RUN — reading from Zulip, writing nothing.');
 
+
             try {
                 $s = $sync->sync(dryRun: true);
                 $s['ok'] = true;
@@ -49,6 +50,22 @@ class ZulipSync extends Command
             $this->error('Sync failed: '.implode('; ', $s['errors'] ?? ['unknown error']));
 
             return self::FAILURE;
+        }
+
+        // A run that asked to write but wasn't allowed to silently became a
+        // dry run — say so before the report, or it reads as a completed sync.
+        $blocked = (bool) ($s['writes_blocked'] ?? false);
+
+        if ($blocked) {
+            $dryRun = true;
+            $this->newLine();
+            $this->warn(
+                'NOTHING WAS WRITTEN. Zulip writes are only allowed in production '
+                .'(config services.zulip.allow_writes / ZULIP_SYNC_ALLOW_WRITES). '
+                .'This ran as a dry run instead. Note the report below reflects THIS '
+                .'environment\'s database, so it is only meaningful if that database '
+                .'matches production.'
+            );
         }
 
         $this->newLine();
@@ -128,9 +145,13 @@ class ZulipSync extends Command
         }
 
         $this->newLine();
-        $this->info($dryRun
-            ? 'Dry run complete — nothing was written. Re-run without --dry-run to apply.'
-            : 'Sync complete.');
+        if ($blocked) {
+            $this->warn('Blocked — nothing was written. Run this on production to apply.');
+        } else {
+            $this->info($dryRun
+                ? 'Dry run complete — nothing was written. Re-run without --dry-run to apply.'
+                : 'Sync complete.');
+        }
 
         return self::SUCCESS;
     }

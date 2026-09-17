@@ -29,6 +29,9 @@
                             @if ($lastSync)
                                 <div class="text-secondary small mt-1">
                                     Last run {{ $lastSync['finished_at'] ?? '?' }} —
+                                    @if($lastSync['writes_blocked'] ?? false)
+                                        <span class="text-warning">nothing written (Zulip writes are disabled in this environment)</span> —
+                                    @endif
                                     @if (($lastSync['ok'] ?? false))
                                         {{ $lastSync['eligible'] ?? 0 }} eligible,
                                         {{ count($lastSync['unmatched'] ?? []) }} not in Zulip yet,

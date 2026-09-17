@@ -4,6 +4,7 @@ namespace App\Services\Zulip;
 
 use App\Models\User;
 use App\Services\ZulipGroupResolver;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -40,8 +41,28 @@ class ZulipSyncService
 
     public function sync(bool $dryRun = false): array
     {
+        // There is one Zulip. A real sync run from a developer machine would
+        // reconcile PRODUCTION against whatever rows happen to be in the local
+        // database — stripping real people out of real groups and unsubscribing
+        // them from real channels, because the portal is canonical and this
+        // reconciles by removal. So outside production a write run is demoted
+        // to a dry run rather than refused outright: the report is still
+        // useful, and nothing can be lost by clicking the admin button or
+        // forgetting --dry-run.
+        $writesBlocked = false;
+
+        if (! $dryRun && ! $this->writesAllowed()) {
+            $dryRun = true;
+            $writesBlocked = true;
+
+            Log::warning('Zulip sync: writes are not allowed in this environment; ran as a dry run instead.', [
+                'environment' => app()->environment(),
+            ]);
+        }
+
         $summary = [
             'dry_run' => $dryRun,
+            'writes_blocked' => $writesBlocked,
             'eligible' => 0,
             'belt_rank_updated' => 0,
             'belt_rank_changes' => [],
@@ -138,6 +159,26 @@ class ZulipSyncService
         $this->reconcileChannels($eligible, $byEmail, $emailById, $protected, $dryRun, $summary);
 
         return $summary;
+    }
+
+    /**
+     * May this environment write to Zulip?
+     *
+     * Unset config means "production only", which is the safe default for a
+     * setting whose whole job is to stop an accidental run. Setting
+     * ZULIP_SYNC_ALLOW_WRITES explicitly overrides it either way — true to sync
+     * from somewhere other than production, false to make even production
+     * read-only while investigating.
+     */
+    private function writesAllowed(): bool
+    {
+        $configured = config('services.zulip.allow_writes');
+
+        if ($configured !== null) {
+            return (bool) $configured;
+        }
+
+        return app()->environment('production');
     }
 
     /**
