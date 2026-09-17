@@ -26,6 +26,66 @@ use Illuminate\Support\Str;
  */
 class ZulipGroupResolver
 {
+    /** @var array<string, string[]>|null composite slug => source committee slugs */
+    private ?array $composites = null;
+
+    /** @var string[]|null slugs of committees that actually have a roster */
+    private ?array $realCommitteeSlugs = null;
+
+    /**
+     * Composite committee groups, from config, validated against the committees
+     * that actually exist.
+     *
+     * A composite is a Zulip group whose members are everyone in the listed
+     * committees rather than a roster of its own, so it cannot drift: the only
+     * way in or out is through a source committee.
+     *
+     * Two rules are enforced here rather than trusted to config. A key that
+     * collides with a real committee's slug is dropped, because that committee
+     * has a roster and computing its membership instead would silently empty
+     * it. Sources are intersected with real committee slugs, so a composite
+     * naming another composite contributes nothing — composites are one level
+     * deep by construction, which keeps {@see self::for()} a single pass.
+     *
+     * @return array<string, string[]>
+     */
+    public function composites(): array
+    {
+        if ($this->composites !== null) {
+            return $this->composites;
+        }
+
+        $real = $this->realCommitteeSlugs();
+        $composites = [];
+
+        foreach ((array) config('services.zulip.committee_composites', []) as $slug => $sources) {
+            $slug = (string) $slug;
+
+            if ($slug === '' || in_array($slug, $real, true)) {
+                continue;
+            }
+
+            $sources = array_values(array_intersect((array) $sources, $real));
+
+            if ($sources) {
+                $composites[$slug] = $sources;
+            }
+        }
+
+        return $this->composites = $composites;
+    }
+
+    /** Slugs of committees with their own roster (no composites). */
+    private function realCommitteeSlugs(): array
+    {
+        return $this->realCommitteeSlugs ??= \App\Models\Committee::whereNotNull('slug')
+            ->pluck('slug')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /**
      * The full universe of group names this resolver can ever emit — every belt
      * rank slug, "all-black", and every committee slug. Used to reconcile Zulip
@@ -38,11 +98,9 @@ class ZulipGroupResolver
             ->pluck('rank')
             ->map(fn ($rank) => Str::slug($rank));
 
-        $committeeGroups = \App\Models\Committee::whereNotNull('slug')->pluck('slug');
-
         return $beltGroups
             ->push('all-black')
-            ->merge($committeeGroups)
+            ->merge($this->committeeSlugs())
             ->filter()
             ->unique()
             ->values()
@@ -50,26 +108,32 @@ class ZulipGroupResolver
     }
 
     /**
-     * Committee slugs only — the subset of managedGroups() that gets a Zulip
-     * channel. Belt-rank groups are used for mentions and permissions, not
-     * rooms.
+     * Every group that gets a Zulip channel: each real committee, plus each
+     * composite. Belt-rank groups are used for mentions and permissions, not
+     * rooms, so they are not here.
+     *
+     * This is also what the coordinator rule hands back, which is why the
+     * coordinator lands in composites without a rule of its own.
      */
     public function committeeSlugs(): array
     {
-        return \App\Models\Committee::whereNotNull('slug')
-            ->pluck('slug')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        return array_values(array_unique(array_merge(
+            $this->realCommitteeSlugs(),
+            array_keys($this->composites()),
+        )));
     }
 
     public function for(User $user): array
     {
+        // Resolved once and passed down: composites are derived from the same
+        // membership, and this is called for every user on every sync.
+        $committees = $this->committeeGroups($user);
+
         $groups = [
             ...$this->beltRankGroups($user),
             ...$this->blackBeltGroups($user),
-            ...$this->committeeGroups($user),
+            ...$committees,
+            ...$this->compositeGroups($committees),
             ...$this->coordinatorGroups($user),
             // Future rules go here, e.g. $this->schoolGroups($user),
             // $this->roleGroups($user), $this->instructorGroups($user), ...
@@ -111,6 +175,25 @@ class ZulipGroupResolver
             ->whereNotNull('slug')
             ->pluck('slug')
             ->all();
+    }
+
+    /**
+     * Every composite the user's committee membership puts them in: being in
+     * any one source committee is enough.
+     *
+     * @param  string[]  $committeeSlugs the user's real committee slugs
+     */
+    private function compositeGroups(array $committeeSlugs): array
+    {
+        $groups = [];
+
+        foreach ($this->composites() as $slug => $sources) {
+            if (array_intersect($committeeSlugs, $sources)) {
+                $groups[] = $slug;
+            }
+        }
+
+        return $groups;
     }
 
     /**

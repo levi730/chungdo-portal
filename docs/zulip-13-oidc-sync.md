@@ -34,12 +34,11 @@ SECRETS_social_auth_oidc_secret: '${ZULIP_OIDC_SECRET}'
    - Short-text field: accepts any value.
    - List/select field: incoming values must exactly match option labels.
 3. The `groups` list only manages the groups listed there; add your **committee
-   slugs** too. Regenerate the full list (belts + all-black + committees):
+   slugs** too. Ask the resolver rather than the committees table, so composite
+   committee groups (config `services.zulip.committee_composites`) are included:
    ```bash
    php artisan tinker --execute='
-   $belts = \App\Models\Rank::orderBy("id")->pluck("rank")->map(fn($r)=>\Illuminate\Support\Str::slug($r));
-   $committees = \App\Models\Committee::whereNotNull("slug")->pluck("slug");
-   echo json_encode($belts->push("all-black")->merge($committees)->unique()->values()->all(), JSON_UNESCAPED_SLASHES);'
+   echo json_encode(app(\App\Services\ZulipGroupResolver::class)->managedGroups(), JSON_UNESCAPED_SLASHES);'
    ```
 4. Zulip re-syncs these on **every login**. Groups Zulip doesn't list are left
    untouched; listed groups are auto-created if missing.

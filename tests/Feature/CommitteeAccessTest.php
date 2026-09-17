@@ -290,3 +290,115 @@ it('shows a read-only coordinator notice on the coordinator edit page', function
         ->assertOk()
         ->assertDontSee('coordinator position', false);
 });
+
+/**
+ * Composite committee groups.
+ *
+ * A composite has no roster of its own: membership is derived from the
+ * committees it names, so the interesting cases are the ones a stored roster
+ * would get wrong — someone joining a source committee later, and someone
+ * leaving one while still sitting on the other.
+ */
+function composite(string $slug, array $sources): void
+{
+    config(['services.zulip.committee_composites' => [$slug => $sources]]);
+    app()->forgetInstance(ZulipGroupResolver::class);
+}
+
+it('puts a member of either source committee in the composite', function () {
+    $events = committeeWithRole('committee.events.x');
+    $comms = committeeWithRole('committee.comms.x');
+    composite('combined-committee', [$events->slug, $comms->slug]);
+
+    $onEvents = User::factory()->create();
+    $onComms = User::factory()->create();
+    $events->members()->attach($onEvents->id);
+    $comms->members()->attach($onComms->id);
+
+    $resolver = app(ZulipGroupResolver::class);
+
+    expect($resolver->for($onEvents->fresh()))->toContain('combined-committee');
+    expect($resolver->for($onComms->fresh()))->toContain('combined-committee');
+});
+
+it('leaves someone out of the composite when they are on neither committee', function () {
+    $events = committeeWithRole('committee.events.y');
+    $comms = committeeWithRole('committee.comms.y');
+    composite('combined-committee', [$events->slug, $comms->slug]);
+
+    $outsider = User::factory()->create();
+
+    expect(app(ZulipGroupResolver::class)->for($outsider))->not->toContain('combined-committee');
+});
+
+it('drops someone from the composite only when they leave every source', function () {
+    $events = committeeWithRole('committee.events.z');
+    $comms = committeeWithRole('committee.comms.z');
+    composite('combined-committee', [$events->slug, $comms->slug]);
+
+    $user = User::factory()->create();
+    $events->members()->attach($user->id);
+    $comms->members()->attach($user->id);
+
+    $events->members()->detach($user->id);
+    app()->forgetInstance(ZulipGroupResolver::class);
+    expect(app(ZulipGroupResolver::class)->for($user->fresh()))->toContain('combined-committee');
+
+    $comms->members()->detach($user->id);
+    app()->forgetInstance(ZulipGroupResolver::class);
+    expect(app(ZulipGroupResolver::class)->for($user->fresh()))->not->toContain('combined-committee');
+});
+
+it('gives the coordinator the composite without a rule of its own', function () {
+    $events = committeeWithRole('committee.events.c');
+    $comms = committeeWithRole('committee.comms.c');
+    composite('combined-committee', [$events->slug, $comms->slug]);
+
+    $coordinator = seatCoordinator(User::factory()->create());
+
+    expect(app(ZulipGroupResolver::class)->for($coordinator))->toContain('combined-committee');
+});
+
+it('manages and channels the composite alongside real committees', function () {
+    $events = committeeWithRole('committee.events.m');
+    $comms = committeeWithRole('committee.comms.m');
+    composite('combined-committee', [$events->slug, $comms->slug]);
+
+    $resolver = app(ZulipGroupResolver::class);
+
+    // In committeeSlugs() so it gets a channel; in managedGroups() so the sync
+    // reconciles it rather than leaving it to drift.
+    expect($resolver->committeeSlugs())->toContain('combined-committee');
+    expect($resolver->managedGroups())->toContain('combined-committee');
+});
+
+it('ignores a composite whose key collides with a real committee', function () {
+    $events = committeeWithRole('committee.events.k');
+    $comms = committeeWithRole('committee.comms.k');
+
+    // A real committee has a roster; computing its membership instead would
+    // silently empty it.
+    composite($events->slug, [$comms->slug]);
+
+    $onComms = User::factory()->create();
+    $comms->members()->attach($onComms->id);
+
+    expect(app(ZulipGroupResolver::class)->for($onComms->fresh()))->not->toContain($events->slug);
+});
+
+it('ignores composite sources that are not real committees', function () {
+    $events = committeeWithRole('committee.events.s');
+    composite('combined-committee', [$events->slug, 'no-such-committee']);
+
+    $user = User::factory()->create();
+    $events->members()->attach($user->id);
+
+    // The real source still counts; the phantom one contributes nothing.
+    expect(app(ZulipGroupResolver::class)->for($user->fresh()))->toContain('combined-committee');
+});
+
+it('drops a composite with no real sources at all', function () {
+    composite('combined-committee', ['nope-one', 'nope-two']);
+
+    expect(app(ZulipGroupResolver::class)->committeeSlugs())->not->toContain('combined-committee');
+});

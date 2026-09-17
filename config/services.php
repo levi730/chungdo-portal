@@ -53,6 +53,25 @@ return [
         'committee_folder_id' => env('ZULIP_COMMITTEE_FOLDER_ID'),
         // Create a channel for a committee that doesn't have one yet.
         'create_committee_channels' => (bool) env('ZULIP_CREATE_COMMITTEE_CHANNELS', true),
+
+        // Composite committee groups: a Zulip group (and channel) whose members
+        // are everyone in the listed committees, instead of a roster of its
+        // own. Membership is derived on every sync, so joining or leaving a
+        // source committee moves someone in or out of the composite with it.
+        //
+        // The key is the Zulip group/channel name; the values are the slugs of
+        // real committees. A composite cannot source another composite, and a
+        // key that collides with a real committee's slug is ignored — that
+        // committee's own roster wins.
+        //
+        // The coordinator lands in composites for free: the coordinator rule
+        // returns every slug in ZulipGroupResolver::committeeSlugs().
+        'committee_composites' => [
+            'events-communications-committee' => [
+                'events-committee',
+                'communications-committee',
+            ],
+        ],
     ],
 
     // Google Static Maps, used only to snapshot an event's location once so the
