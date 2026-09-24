@@ -17,6 +17,26 @@ return [
             'schema' => 'public',
             'sslmode' => 'prefer',
         ],
+
+        // Read-only diagnostic connection to production (MariaDB on kronos,
+        // bound to 127.0.0.1 there). Reached through an SSH tunnel from the
+        // Mac: `ssh -N -L 3307:127.0.0.1:3306 kronos`; the DDEV container sees
+        // the Mac as host.docker.internal. The chungdo_ro user is granted
+        // SELECT only, so this connection cannot mutate prod data.
+        'prod_ro' => [
+            'driver' => 'mysql',
+            'host' => env('PROD_DB_HOST', 'host.docker.internal'),
+            'port' => env('PROD_DB_PORT', '3307'),
+            'database' => env('PROD_DB_DATABASE', 'chungdo'),
+            'username' => env('PROD_DB_USERNAME', 'chungdo_ro'),
+            'password' => env('PROD_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+        ],
     ],
 
     'migrations' => [
