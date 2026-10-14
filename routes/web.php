@@ -189,6 +189,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/event/{slug}/refund-requests', [\App\Http\Controllers\EventController::class, 'refundRequests'])->name('event.refund-requests');
     Route::post('/event/{slug}/refund-requests/{id}/approve', [\App\Http\Controllers\EventController::class, 'approveRefund'])->name('event.refund-approve');
     Route::post('/event/{slug}/refund-requests/{id}/deny', [\App\Http\Controllers\EventController::class, 'denyRefund'])->name('event.refund-deny');
+    // Cash/check registrations: an instructor registers students who paid them,
+    // and someone with payments.receive marks the envelope deposited.
+    // Authorization is in CashRemittancePolicy, not here.
+    Route::get('/event/{slug}/register/cash', [\App\Http\Controllers\CashRemittanceController::class, 'create'])->name('cash.register');
+    Route::get('/cash-remittances', [\App\Http\Controllers\CashRemittanceController::class, 'index'])->name('cash.remittances');
+    Route::get('/cash-remittances/{remittance}', [\App\Http\Controllers\CashRemittanceController::class, 'show'])->name('cash.slip');
+    Route::post('/cash-remittances/{remittance}/receive', [\App\Http\Controllers\CashRemittanceController::class, 'receive'])->name('cash.receive');
+    Route::post('/cash-remittances/{remittance}/void', [\App\Http\Controllers\CashRemittanceController::class, 'void'])->name('cash.void');
     Route::get('/event/{slug}/register', [\App\Http\Controllers\EventController::class, 'registerForm'])->name('event.register');
     Route::post('/event/{slug}/register', [\App\Http\Controllers\EventController::class, 'registerProcess'])->name('event.register-process');
     Route::post('/event/{slug}/register/finalize', [\App\Http\Controllers\EventController::class, 'registerFinalize'])->name('event.register-finalize');

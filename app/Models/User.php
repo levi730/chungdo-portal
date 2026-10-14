@@ -381,6 +381,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasManyThrough(School::class, SchoolInstructor::class, 'user_id', 'id', 'id', 'school_id');
     }
 
+    /** An instructor of any school — enough to register students paying cash/check. */
+    public function isInstructor(): bool
+    {
+        return SchoolInstructor::where('user_id', $this->id)->exists();
+    }
+
 
     public function events(): BelongsToMany
     {

@@ -3,6 +3,7 @@
 namespace App\Exports\Event;
 
 use App\EventAddons\AddonRegistry;
+use App\Models\CashRemittance;
 use App\Models\EventRegistration;
 use App\Models\Payment;
 use App\Models\Refund;
@@ -20,8 +21,10 @@ use App\Models\Event;
 /**
  * A per-event financial ledger: one row per registration payment (a charge,
  * with dollars broken out by add-on category) and one row per issued refund
- * (negative, attributed to the person). Net Collected = charges - refunds
- * reconciles against Stripe.
+ * (negative, attributed to the person). Net Collected = charges - refunds.
+ * Cash/check payments (from a CashRemittance) are in the same ledger, so the
+ * net is split into Stripe and cash/check — only the Stripe part reconciles
+ * against the Stripe dashboard.
  */
 class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting, WithEvents
 {
@@ -48,6 +51,8 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
             'columns' => $data['columns'],
             'rows' => $data['rows'],
             'net' => $data['net'],
+            'netStripe' => $data['netStripe'],
+            'netOffline' => $data['netOffline'],
             // Which Stripe account these charges are in — needed to reconcile
             // this sheet against the right Stripe dashboard.
             'stripeAccount' => $this->event->stripeAccountLabel(),
@@ -105,6 +110,8 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
 
         $byPayment = $registrations->whereNotNull('payment_id')->groupBy('payment_id');
         $payments = Payment::whereIn('id', $byPayment->keys())->get()->keyBy('id');
+        // Cash/check payments reference their remittance instead of Stripe.
+        $remittanceRefs = CashRemittance::whereIn('payment_id', $byPayment->keys())->pluck('reference', 'payment_id');
 
         // Preload every user we'll name. The payor is on the Payment (user_id);
         // older registrations predate registering_user_id (it can be null), so the
@@ -165,13 +172,16 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
 
             $rows[] = [
                 'date' => $payment->created_at,
-                'type' => 'Registration',
+                'type' => $payment->isStripe()
+                    ? 'Registration'
+                    : 'Registration ('.strtolower(CashRemittance::METHODS[$payment->method] ?? $payment->method).')',
                 'payor' => $this->name($payor),
                 'email' => $payor?->email,
                 'registrants' => $names,
                 'amounts' => $amounts,
                 'total' => $total,
-                'stripe_ref' => $payment->stripe_payment_intent_id,
+                'stripe_ref' => $payment->isStripe() ? $payment->stripe_payment_intent_id : $remittanceRefs->get($payment->id),
+                'stripe' => $payment->isStripe(),
             ];
         }
 
@@ -196,6 +206,8 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
                 'amounts' => $amounts,
                 'total' => round(-(float) $refund->amount, 2),
                 'stripe_ref' => $refund->stripe_refund_id,
+                // A refund with no Stripe id was handed back outside Stripe.
+                'stripe' => (bool) $refund->stripe_refund_id,
             ];
         }
 
@@ -215,8 +227,12 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
         usort($rows, fn ($a, $b) => ($a['date']?->timestamp ?? 0) <=> ($b['date']?->timestamp ?? 0));
 
         $net = round(array_sum(array_column($rows, 'total')), 2);
+        // Split so the Stripe part can still be reconciled against the
+        // dashboard once cash and check money is in the same ledger.
+        $netStripe = round(collect($rows)->where('stripe', true)->sum('total'), 2);
+        $netOffline = round($net - $netStripe, 2);
 
-        return $this->data = compact('columns', 'rows', 'net');
+        return $this->data = compact('columns', 'rows', 'net', 'netStripe', 'netOffline');
     }
 
     private function name(?User $user): ?string

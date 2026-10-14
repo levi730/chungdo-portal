@@ -47,6 +47,11 @@
 
             {{-- View mode: current add-on badges + an Edit button --}}
             <div class="mt-2 pt-2 border-top d-flex flex-wrap align-items-center gap-1" x-show="!editing['{{ $user->id }}']">
+                @if($reg && $reg->awaitingCash())
+                    <span class="badge bg-warning text-white" title="Reference {{ $reg->cashRemittance->reference }}">
+                        Payment pending &mdash; cash/check via {{ $reg->cashRemittance->responsible->full_name }}
+                    </span>
+                @endif
                 @if($reg && $reg->addonAnswers->count())
                     @foreach($reg->addonAnswers as $answer)
                         @php($label = \App\EventAddons\AddonRegistry::for($answer->type)?->badgeLabel($answer))
@@ -57,13 +62,13 @@
                 @else
                     <span class="text-muted small">No add-ons selected.</span>
                 @endif
-                @if(($canEditAddons ?? false) && $editCells->count())
+                @if(($canEditAddons ?? false) && $editCells->count() && ! ($reg && $reg->awaitingCash()))
                     <button type="button" class="btn btn-sm btn-outline-primary ms-1" @click="startEdit('{{ $user->id }}')">Edit add-ons</button>
                 @endif
             </div>
 
             {{-- Edit mode: editable, pre-filled controls + a live delta --}}
-            @if(($canEditAddons ?? false) && $editCells->count())
+            @if(($canEditAddons ?? false) && $editCells->count() && ! ($reg && $reg->awaitingCash()))
                 <div x-show="editing['{{ $user->id }}']" x-cloak class="mt-2 pt-2 border-top">
                     <div class="addon-grid">
                         @foreach($editCells as $addon)

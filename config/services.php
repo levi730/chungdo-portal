@@ -16,6 +16,10 @@ return [
     // Add an account by adding a key here; the event form picks up the new
     // option automatically. An account whose secret is unset is treated as not
     // configured and is hidden from the form.
+    //
+    // `payee` is who a check is made out to for an event on that account. Cash
+    // and check money for an event belongs to the same organisation its card
+    // money does, so the two always land in the same place.
     'stripe' => [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
@@ -25,12 +29,14 @@ return [
         'accounts' => [
             'association' => [
                 'label' => 'Association Account',
+                'payee' => env('STRIPE_PAYEE', 'Chung Do Association'),
                 'key' => env('STRIPE_KEY'),
                 'secret' => env('STRIPE_SECRET'),
                 'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
             ],
             'main_school' => [
                 'label' => 'Main School Account',
+                'payee' => env('STRIPE_MAIN_SCHOOL_PAYEE', 'Blue Wave Main School'),
                 'key' => env('STRIPE_MAIN_SCHOOL_KEY'),
                 'secret' => env('STRIPE_MAIN_SCHOOL_SECRET'),
                 'webhook_secret' => env('STRIPE_MAIN_SCHOOL_WEBHOOK_SECRET'),

@@ -19,6 +19,13 @@
                 </div>
             </div>
 
+            @if(! empty($f['cash_due']))
+                <div class="alert alert-warning m-3 mb-0">
+                    <b>Unpaid:</b> @if($f['cash_due']['amount'] !== null)${{ number_format($f['cash_due']['amount'], 2) }} @endif
+                    by cash/check through {{ $f['cash_due']['instructor'] }} ({{ $f['cash_due']['reference'] }}) has not been received yet.
+                </div>
+            @endif
+
             @if($f['registered'] && ! $f['checked_in'])
                 <div class="card-body row"
                      x-data="{

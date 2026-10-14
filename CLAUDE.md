@@ -111,6 +111,41 @@ Remaining build-order work: the pick list, the orders admin and the financials
 export, then refunds. The pick list is the operational one — it is how the
 shirts actually get handed out.
 
+## Cash/check registrations
+
+An instructor registers students who paid them in cash or by check
+(`/event/{slug}/register/cash`, the `CashRegistration` Livewire form). One
+submission is one envelope: a `CashRemittance` (`CR-00042`) recording what the
+instructor owes. Services in `App\Services\CashRegistration`.
+
+- **Registrations exist immediately, unpaid** — `amount_paid = 0`, no
+  `payment_id`, `event_registrations.cash_remittance_id` set. The registration
+  card PDF already prints them as unpaid. Check-in, the registrants list and the
+  family's own register page show "payment pending".
+- **Marking it received is what creates the `Payment`**, with
+  `payments.method` = cash/check/mixed and no intent id. The amount is split
+  across students in slip order up to each one's line total, so a short
+  envelope leaves the *last* students unpaid. `RemittanceReceiver` locks the row
+  and checks status, like the fulfiller. Void is only before receipt; it
+  archives to `event_registrations_deleted`.
+- **Pricing reuses the add-on handlers** through a synthetic request, so cash
+  and card cost the same — except the multi-person discount, which is applied
+  **per household within the batch** (primary guardian), not by position in
+  the submission. Group add-ons (donation, potluck) are not offered.
+- **Who:** any instructor of any school (`school_instructors`) or `event.manage`
+  can enter; only `event.manage` may name someone else responsible. Receiving
+  needs **`payments.receive`**, granted to no role — give it to the treasurer.
+  It is in the coordinator allowlist. `CashRemittancePolicy`.
+- **Payee follows the event's Stripe account** (`services.stripe.accounts.*.payee`),
+  snapshotted on the remittance. Card and check money for an event land in the
+  same organisation.
+- Add-on changes are refused while the envelope is outstanding.
+- **The financials export** labels cash rows, puts the remittance reference in
+  the reference column, and splits Net Collected into Stripe and cash/check —
+  only the Stripe part reconciles against the dashboard.
+- **No Stripe to sweep**, so `cash:remind-outstanding` (weekly) mails
+  `payments.receive` holders anything still outstanding 3+ days after its event.
+
 ## Groups and permissions
 
 Committees are three things at once: a published directory, a Zulip group (via

@@ -77,6 +77,10 @@
                                             <a class="dropdown-item" href="{{ route('events.index') }}">Manage Events</a>
                                             <a class="dropdown-item" href="{{ route('events.create') }}">+ Add Event</a>
                                         @endcan
+                                        @if(auth()->user()->can('viewAny', \App\Models\CashRemittance::class) || auth()->user()->isInstructor())
+                                            <div class="dropdown-divider"></div>
+                                            <a class="dropdown-item" href="{{ route('cash.remittances') }}">Cash/check remittances</a>
+                                        @endif
                                     </div>
                                 </div>
                             </div>

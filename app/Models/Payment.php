@@ -23,7 +23,15 @@ class Payment extends Model
     /**
      * @var array
      */
-    protected $fillable = ['user_id', 'product_order_id', 'amount_paid', 'stripe_payment_intent_id'];
+    protected $fillable = ['user_id', 'product_order_id', 'amount_paid', 'method', 'stripe_payment_intent_id'];
+
+    /** How the money came in: stripe, or cash/check/mixed from a CashRemittance. */
+    public const METHOD_STRIPE = 'stripe';
+
+    public function isStripe(): bool
+    {
+        return ($this->method ?? self::METHOD_STRIPE) === self::METHOD_STRIPE;
+    }
 
     public function user(): HasOne
     {

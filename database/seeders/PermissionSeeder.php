@@ -109,6 +109,11 @@ class PermissionSeeder extends Seeder
             // It exists as a permission so it can be held by a role (the
             // coordinator) instead of being hard-wired to super.admin.
             'users.manage',
+            // Marking cash/check remittances received — recording that money
+            // collected by an instructor has been deposited. Narrower than
+            // running events, so granted to no role by default: give it to the
+            // treasurer, directly or through a committee.
+            'payments.receive',
         ];
 
         // Spatie caches the permission list for the life of the request. A

@@ -236,7 +236,7 @@ class EventController extends Controller
         // already-registered students can show badges for what they signed up for.
         $registeredRegs = EventRegistration::where('event_id', $event->id)
             ->whereIn('user_id', $ids)
-            ->with('addonAnswers.addon')
+            ->with(['addonAnswers.addon', 'cashRemittance.responsible'])
             ->get()
             ->keyBy('user_id');
 
@@ -516,6 +516,15 @@ class EventController extends Controller
             ], 422);
         }
 
+        // Money for this registration is still in an instructor's envelope:
+        // there is nothing yet to top up or refund against.
+        if ($registration->awaitingCash()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This registration is waiting on a cash/check payment through your instructor. Ask them to change it, or try again once the payment has been received.',
+            ], 422);
+        }
+
         $result = (new \App\Services\AddonAdjustmentService())->submit($request, $registration, $payer);
 
         if (in_array($result['status'], ['applied', 'refund_requested', 'charged'])) {
@@ -618,7 +627,10 @@ class EventController extends Controller
 
         $grouped_data = $regs->groupBy('school.shortname');
 
-        return view('event.registrants', compact('grouped_data', 'event', 'total_count', 'tshirt_breakdown', 'tshirt_total'));
+        // Registered through an instructor, envelope not yet received: id => reference.
+        $awaitingCash = \App\Models\CashRemittance::outstanding()->where('event_id', $event->id)->pluck('reference', 'id');
+
+        return view('event.registrants', compact('grouped_data', 'event', 'total_count', 'tshirt_breakdown', 'tshirt_total', 'awaitingCash'));
     }
 
     /**

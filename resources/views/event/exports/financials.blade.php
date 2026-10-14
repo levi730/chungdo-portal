@@ -13,7 +13,7 @@
             <th><b>{{ $label }}</b></th>
         @endforeach
         <th><b>Total</b></th>
-        <th><b>Stripe Reference</b></th>
+        <th><b>Stripe / Remittance Reference</b></th>
     </tr>
     </thead>
     <tbody>
@@ -43,5 +43,21 @@
         <td><b>{{ $net }}</b></td>
         <td></td>
     </tr>
+    @if($netOffline != 0)
+        @foreach(['Via Stripe' => $netStripe, 'Via cash/check' => $netOffline] as $label => $amount)
+            <tr>
+                <td></td>
+                <td>{{ $label }}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                @foreach($columns as $c)
+                    <td></td>
+                @endforeach
+                <td>{{ $amount }}</td>
+                <td></td>
+            </tr>
+        @endforeach
+    @endif
     </tbody>
 </table>

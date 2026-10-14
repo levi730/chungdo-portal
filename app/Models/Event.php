@@ -203,7 +203,7 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
     {
         return $this->belongsToMany(User::class, 'event_registrations')
             ->using(EventRegistration::class)
-            ->withPivot('id', 'amount_due', 'amount_paid', 'payment_id', 'event_division_id', 'registering_user_id', 'checkin');
+            ->withPivot('id', 'amount_due', 'amount_paid', 'payment_id', 'cash_remittance_id', 'event_division_id', 'registering_user_id', 'checkin');
     }
 
     public function scopeUpcoming($query)
@@ -213,7 +213,7 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
 
     public function registrations(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'event_registrations')->using(EventRegistration::class)->withPivot('id', 'amount_due', 'amount_paid', 'event_division_id', 'payment_id', 'registering_user_id', 'checkin')->withTimestamps();
+        return $this->belongsToMany(User::class, 'event_registrations')->using(EventRegistration::class)->withPivot('id', 'amount_due', 'amount_paid', 'event_division_id', 'payment_id', 'cash_remittance_id', 'registering_user_id', 'checkin')->withTimestamps();
     }
 
     public function potluck_options(): HasMany

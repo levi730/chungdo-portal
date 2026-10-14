@@ -61,6 +61,19 @@ class EventRegistration extends Pivot
         return $this->belongsTo(EventDivision::class, 'forms_event_division_id');
     }
 
+    /** Set when this registration was paid (or is still owed) in cash or check. */
+    public function cashRemittance(): BelongsTo
+    {
+        return $this->belongsTo(CashRemittance::class);
+    }
+
+    /** Registered through an instructor, and the envelope has not been received yet. */
+    public function awaitingCash(): bool
+    {
+        return $this->cash_remittance_id !== null
+            && $this->cashRemittance?->status === CashRemittance::STATUS_OUTSTANDING;
+    }
+
     public function addonAnswers(): HasMany
     {
         return $this->hasMany(EventRegistrationAddon::class, 'event_registration_id');

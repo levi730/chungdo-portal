@@ -67,6 +67,21 @@ class StripeAccounts
         return $this->options()[$this->resolve($slug)] ?? $this->resolve($slug);
     }
 
+    /**
+     * Who a check is made out to for money on this account. Unlike the
+     * credentials this is needed even where the account has no secret (a dev
+     * machine), so it reads the configured account directly and falls back to
+     * its label rather than throwing.
+     */
+    public function payee(?string $slug): string
+    {
+        $slug = $this->resolve($slug);
+
+        return (string) (config("services.stripe.accounts.{$slug}.payee")
+            ?: config("services.stripe.accounts.{$slug}.label")
+            ?: $slug);
+    }
+
     public function secret(?string $slug): string
     {
         return $this->credential($slug, 'secret');

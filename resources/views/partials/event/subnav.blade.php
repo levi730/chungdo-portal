@@ -35,6 +35,17 @@
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="cashDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Cash/Check
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="cashDropdown">
+                            @can('create', [\App\Models\CashRemittance::class, $event])
+                                <li><a class="dropdown-item" href="{{ route('cash.register', $event->slug) }}">Register students paying cash/check</a></li>
+                            @endcan
+                            <li><a class="dropdown-item" href="{{ route('cash.remittances', ['event' => $event->id, 'status' => 'all']) }}">Remittances for this event</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="regCardsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Registration Cards
                         </a>

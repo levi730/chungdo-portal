@@ -18,3 +18,7 @@ if (config('services.zulip.site')) {
 // backstop that doesn't depend on a webhook being delivered — Stripe disables
 // endpoints after sustained failures. See docs/payment-flow-pattern.md.
 Schedule::command('store:reconcile-orders')->everyFifteenMinutes()->withoutOverlapping();
+
+// Cash/check remittances still not turned in after their event. The cash flow's
+// stand-in for a reconcile sweep: nothing to ask Stripe, so ask a person.
+Schedule::command('cash:remind-outstanding')->weeklyOn(1, '08:00');

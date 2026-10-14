@@ -56,6 +56,7 @@ return [
         'store.manage',
         'school.manage',
         'users.manage',
+        'payments.receive',
     ],
 
 ];

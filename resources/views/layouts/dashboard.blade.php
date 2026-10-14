@@ -29,6 +29,10 @@
     <link href="{{ asset('dist/css/demo.min.css') }}" rel="stylesheet"/>
     <link href="{{ asset('/css/custom.css') }}" rel="stylesheet"/>
     @vite('resources/css/app.css')
+    {{-- @livewireScripts is placed by hand below, which turns off Livewire's
+         automatic asset injection — its styles included. Without these,
+         wire:loading elements are never hidden and spinners show forever. --}}
+    @livewireStyles
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant&display=swap" rel="stylesheet">

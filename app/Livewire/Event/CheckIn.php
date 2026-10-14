@@ -32,7 +32,7 @@ class CheckIn extends DataTableComponent
     public function builder(): Builder
     {
         return EventRegistration::query()
-            ->with(['user', 'user.rank', 'user.school', 'addonAnswers']) // Eager load anything
+            ->with(['user', 'user.rank', 'user.school', 'addonAnswers', 'cashRemittance']) // Eager load anything
             ->where('event_registrations.event_id', '=', $this->eventId);
     }
 
@@ -117,6 +117,11 @@ class CheckIn extends DataTableComponent
                 ->searchable(),
             Column::make('T-Shirt Size')
                 ->label(fn ($row) => $row->tshirtSize()),
+            Column::make('Payment')
+                ->label(fn ($row) => $row->awaitingCash()
+                    ? '<span class="badge bg-warning text-white">Cash/check due &middot; '.e($row->cashRemittance->reference).'</span>'
+                    : '')
+                ->html(),
         ];
     }
 

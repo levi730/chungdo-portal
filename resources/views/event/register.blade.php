@@ -15,6 +15,14 @@
         <div class="row">
             <div class="text-center text-primary display-6 mb-4">{{ $event->name }}</div>
 
+            {{-- Instructors don't see the admin subnav, so the cash/check door is here. --}}
+            @can('create', [\App\Models\CashRemittance::class, $event])
+                <div class="text-center mb-3">
+                    <a href="{{ route('cash.register', $event->slug) }}" class="btn btn-outline-primary">Register students paying cash/check</a>
+                    <a href="{{ route('cash.remittances') }}" class="btn btn-link">My remittances</a>
+                </div>
+            @endcan
+
             {{--<div class="float-end">
                 @include('partials.event.admin')
             </div>--}}

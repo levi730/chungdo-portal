@@ -55,6 +55,13 @@ class CheckInDetails extends Component
                 'registered' => (bool) $reg,
                 'checked_in' => $reg && $reg->checkin,
                 'tshirt' => $reg ? $reg->tshirtSize() : null,
+                // Registered through an instructor and the envelope has not
+                // been received: worth knowing at the door.
+                'cash_due' => $reg && $reg->awaitingCash() ? [
+                    'reference' => $reg->cashRemittance->reference,
+                    'instructor' => $reg->cashRemittance->responsible?->full_name,
+                    'amount' => collect($reg->cashRemittance->lines())->firstWhere('user_id', $id)['amount'] ?? null,
+                ] : null,
                 'firstname' => $user->firstname,
                 'lastname' => $user->lastname,
                 'rank_id' => $user->rank_id,

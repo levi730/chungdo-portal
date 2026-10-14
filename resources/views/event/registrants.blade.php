@@ -38,7 +38,12 @@
 
                 <tr id="user{{ $user->id }}Row" @class(['bg-warning-lt' => $user->notes->count() > 0])>
                     <td>{{ $user->firstname }}</td>
-                    <td>{{ $user->lastname }}</td>
+                    <td>
+                        {{ $user->lastname }}
+                        @if($user->pivot->cash_remittance_id && isset($awaitingCash[$user->pivot->cash_remittance_id]))
+                            <a href="{{ route('cash.slip', $user->pivot->cash_remittance_id) }}" class="badge bg-warning text-white" title="Cash/check not yet received">Unpaid &middot; {{ $awaitingCash[$user->pivot->cash_remittance_id] }}</a>
+                        @endif
+                    </td>
                     <td><a href="mailto:{{ $user->email }}"> {{ $user->email }}</a></td>
                     <td>{{ $user->rank->rank }}</td>
                     <td>{{ $user->age }}</td>
