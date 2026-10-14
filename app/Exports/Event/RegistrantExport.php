@@ -42,6 +42,7 @@ class RegistrantExport implements FromView, ShouldAutoSize, WithColumnFormatting
         }
 
         return view('event.exports.registrants', [
+            'event' => $this->event,
             'registrations' => $registrations,
         ]);
     }
@@ -55,7 +56,7 @@ class RegistrantExport implements FromView, ShouldAutoSize, WithColumnFormatting
     {
         return [
             'E' => 'mm/dd/YYYY',        // DOB
-            'I' => 'mm/dd/YYYY hh:mm',   // Signup Time
+            'J' => 'mm/dd/YYYY hh:mm',   // Signup Time
         ];
     }
 }

@@ -6,6 +6,7 @@
         <th><b>Email</b></th>
         <th><b>Rank</b></th>
         <th><b>DOB</b></th>
+        <th><b>{{ $event->startdatetime ? 'Age (at event)' : 'Age (today)' }}</b></th>
         <th><b>School</b></th>
         <th><b>Potluck Item</b></th>
         <th><b>Volunteer Selections</b></th>
@@ -22,6 +23,7 @@
         <td>{{ $reg->email }}</td>
         <td>{{ $reg->rank?->rank }}</td>
         <td>@if($reg->dob){{ \PhpOffice\PhpSpreadsheet\Shared\Date::dateTimeToExcel($reg->dob) }}@endif</td>
+        <td>{{ $reg->getAgeOnDate($event->startdatetime) }}</td>
         <td>{{ $reg->school?->shortname }}</td>
         <td>{{ $reg->pivot->potluckLabel() }}</td>
         <td>{{ collect($reg->pivot->volunteerSelections())->implode(',') }}</td>
