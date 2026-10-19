@@ -324,6 +324,16 @@ class EventController extends Controller
             $registered = explode(',', $registered);
         }
 
+        // The form hides the toggle for anyone with an incomplete profile, but
+        // that's only the browser — refuse them here too, or a registrant can
+        // arrive without the sex/size data divisions and check-in rely on.
+        foreach ($registered ?: [] as $userid) {
+            $u = User::find($userid);
+            if ($u && ($missing = $u->missingRegistrationFields())) {
+                return back()->with('error', $u->full_name.' cannot be registered until their profile has: '.implode(', ', $missing).'.');
+            }
+        }
+
         // Enforce the event's minimum belt rank requirement server-side so it
         // can't be bypassed by tampering with the disabled toggle on the form.
         if ($event->minimum_rank_id && $registered) {

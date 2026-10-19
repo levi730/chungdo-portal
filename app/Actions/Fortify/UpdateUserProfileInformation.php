@@ -33,6 +33,8 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
                 Rule::unique('users')->ignore($user->id),
             ],
             'phone' => ['nullable', 'string', 'max:30'],
+            // Students compete, and divisions and check-in need their sex.
+            'sex' => ['nullable', 'required_if_accepted:is_student', 'in:F,M'],
         ])->validateWithBag('updateProfileInformation');
 
         if ($input['email'] !== $user->email &&

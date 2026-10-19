@@ -164,13 +164,26 @@ class User extends Authenticatable implements MustVerifyEmail
         return $str;
     }
 
+    /**
+     * Profile fields a registrant must have before they can register for an
+     * event — the same ones check-in requires. Returns their labels, empty
+     * when the profile is complete.
+     */
+    public function missingRegistrationFields(): array
+    {
+        return array_keys(array_filter([
+            'school' => ! $this->school,
+            'rank' => ! $this->rank,
+            'date of birth' => ! $this->dob,
+            'height' => $this->height < 1,
+            'weight' => $this->weight < 1,
+            'sex' => ! in_array($this->sex, ['F', 'M'], true),
+        ]));
+    }
+
     public function getCanRegisterForTournamentsAttribute()
     {
-        if (! $this->school || ! $this->rank || $this->height < 1 || $this->weight < 1 && $this->dob) {
-            return false;
-        }
-
-        return true;
+        return $this->missingRegistrationFields() === [];
     }
 
     public function getAddress1Attribute()

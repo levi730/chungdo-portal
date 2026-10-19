@@ -35,7 +35,8 @@
                                :class="registered.includes('{{ $user->id }}') ? 'bg-primary border-primary' : 'bg-secondary border-secondary'">
                     </label>
                 @else
-                    <span class="badge bg-danger text-white" title="School, rank, height and weight are all required">Missing data</span>
+                    <span class="badge bg-danger text-white" title="School, rank, date of birth, height, weight and sex are all required">Missing data</span>
+                    <div class="small text-muted">Needs {{ implode(', ', $user->missingRegistrationFields()) }}</div>
                     <div class="small"><a href="{{ route('profile.edit') }}">Update profile</a></div>
                 @endif
             </div>

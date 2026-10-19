@@ -181,6 +181,7 @@ class ProfileController extends Controller
         Validator::make($input, [
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
+            'sex' => ['required', 'in:F,M'],
         ])->validateWithBag('updateFamilyMember');
 
         $u = User::findOrFail($id);
@@ -319,6 +320,12 @@ class ProfileController extends Controller
     {
         $input = $request->all();
         session()->flash('profile_hash', 'tabs-student');
+
+        Validator::make($input, [
+            'firstname' => ['required', 'string', 'max:255'],
+            'lastname' => ['required', 'string', 'max:255'],
+            'sex' => ['required', 'in:F,M'],
+        ])->validateWithBag('updateFamilyMember');
 
         $u = new User();
         $u->forceFill([

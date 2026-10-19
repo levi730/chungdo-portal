@@ -73,7 +73,7 @@ class UserController extends Controller
             'dob' => ['nullable', 'date'],
             'height' => ['nullable', 'integer', 'min:0', 'max:120'],
             'weight' => ['nullable', 'integer', 'min:0', 'max:1500'],
-            'sex' => ['nullable', 'string', 'max:1'],
+            'sex' => ['nullable', 'in:F,M'],
             'roles' => ['array'],
             'roles.*' => [Rule::in(RoleAssignment::assignableBy($request->user())->all())],
             'password' => ['nullable', 'confirmed', PasswordRule::defaults()],
