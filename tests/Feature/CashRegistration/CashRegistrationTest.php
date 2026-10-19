@@ -345,3 +345,18 @@ it('reports remittances still outstanding after their event, and nothing else', 
         ->not->toContain($settled->id)
         ->and($ids->count())->toBe(CashRemittance::outstanding()->whereHas('event', fn ($q) => $q->where('startdatetime', '<', now()->subDays(3)))->count());
 });
+
+it('warns about an incomplete profile but still lets the instructor add the student', function () {
+    $event = cashEvent();
+    $instructor = cashInstructor();
+    $student = User::factory()->create(['firstname' => 'Wren', 'lastname' => 'Okonkwo', 'sex' => null]);
+
+    Livewire::actingAs($instructor)
+        ->test(CashRegistration::class, ['eventId' => $event->id])
+        ->set('search', 'Okonkwo')
+        ->assertSee('Incomplete profile')
+        ->call('add', $student->id)
+        ->assertSet("students.{$student->id}.participation", \App\EventAddons\EventParticipationAddon::BOTH)
+        ->assertSee('collect it at check-in')
+        ->assertSee('sex');
+});

@@ -28,7 +28,12 @@
                                             wire:click="add({{ $result->id }})">
                                         <span>{{ $result->lastname }}, {{ $result->firstname }}
                                             <span class="text-secondary small">&middot; {{ $result->school?->shortname }} &middot; {{ $result->rank?->rank }}@if($result->age) &middot; age {{ $result->age }}@endif</span></span>
-                                        <span class="text-primary small">Add</span>
+                                        <span class="small">
+                                            @if ($result->missingRegistrationFields())
+                                                <span class="badge bg-warning-lt me-1" title="Needs {{ implode(', ', $result->missingRegistrationFields()) }}">Incomplete profile</span>
+                                            @endif
+                                            <span class="text-primary">Add</span>
+                                        </span>
                                     </button>
                                 @endif
                             @endforeach
@@ -67,6 +72,11 @@
                                     <td>
                                         {{ $u->full_name }}
                                         <div class="text-secondary small">{{ $u->school?->shortname }} &middot; {{ $u->rank?->rank }}</div>
+                                        {{-- A warning, not a block: the instructor usually can't edit another
+                                             family's profile, and check-in collects whatever is missing. --}}
+                                        @if ($missing = $u->missingRegistrationFields())
+                                            <div class="text-warning small">Profile needs {{ implode(', ', $missing) }} &mdash; collect it at check-in</div>
+                                        @endif
                                     </td>
                                     @foreach ($this->addons as $addon)
                                         @continue($addon->type === 'registration_fee')
