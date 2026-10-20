@@ -17,13 +17,18 @@ class EventDivisionService
 {
     public function __construct(private DivisionArranger $arranger = new DivisionArranger()) {}
 
-    /** Label of the virtual group holding competitors who aren't in any division yet. */
-    public const UNPLACED_LABEL = 'New — not placed yet';
+    /**
+     * Label of the virtual group holding competitors who aren't in any division:
+     * late registrants, people missing the data to place them, and anyone taken
+     * out by hand. The board never saves it as a division.
+     */
+    public const UNPLACED_LABEL = 'Not placed';
 
     /**
      * The saved arrangement for a discipline as board data, or an empty list.
-     * Competitors who registered (or switched into this discipline) after the
-     * save are surfaced in a leading UNPLACED group, and members who no longer
+     * Competitors in no division (registered or switched into this discipline
+     * after the save, or taken out by hand) are surfaced in a leading UNPLACED
+     * group, and members who no longer
      * compete in it are flagged `stale` — so a late registration is visible
      * without rebuilding the board and losing hand-made merges.
      *
@@ -91,16 +96,24 @@ class EventDivisionService
             ->keyBy('id');
     }
 
-    /** Arranger output → unsaved board data. */
+    /**
+     * Arranger output → unsaved board data. The arranger's bucket of people it
+     * couldn't place becomes the leading not-placed group.
+     */
     private function toBoard(array $divisions, \Illuminate\Support\Collection $regs): array
     {
-        return array_map(fn ($d) => [
+        $board = array_map(fn ($d) => [
             'id' => null,
-            'label' => $d['label'],
+            'label' => ! empty($d['unassigned']) ? self::UNPLACED_LABEL : $d['label'],
+            'pending' => ! empty($d['unassigned']),
             'members' => collect($d['members'])
                 ->map(fn ($regId) => $this->memberDto($regs[$regId]))
                 ->all(),
         ], $divisions);
+
+        usort($board, fn ($a, $b) => $b['pending'] <=> $a['pending']); // stable: divisions keep their order
+
+        return $board;
     }
 
     /**

@@ -17,7 +17,8 @@ use Illuminate\Support\Collection;
  *  - Weight is not used here — it's shown in the UI for manual splitting.
  *
  * Each returned division: ['label' => string, 'sex' => 'M'|'F'|null,
- * 'members' => int[] registration ids].
+ * 'members' => int[] registration ids]. Registrants missing the age, sex or
+ * rank to place them come last, flagged 'unassigned' => true.
  */
 class DivisionArranger
 {
@@ -83,7 +84,7 @@ class DivisionArranger
         ], $divisions);
 
         if ($unassigned) {
-            $out[] = ['label' => 'Unassigned', 'sex' => null, 'members' => $unassigned];
+            $out[] = ['label' => 'Unassigned', 'sex' => null, 'members' => $unassigned, 'unassigned' => true];
         }
 
         return $out;
@@ -127,7 +128,7 @@ class DivisionArranger
         ], $groups));
 
         if ($unassigned) {
-            $out[] = ['label' => 'Unassigned', 'sex' => null, 'members' => $unassigned];
+            $out[] = ['label' => 'Unassigned', 'sex' => null, 'members' => $unassigned, 'unassigned' => true];
         }
 
         return $out;

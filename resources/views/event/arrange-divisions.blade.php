@@ -100,10 +100,10 @@
                   x-text="published ? 'Published · ' + published.at : 'Unpublished'"></span>
             <span class="text-muted">
                 <span x-text="totalMembers"></span> registrants ·
-                <span x-text="visibleCount"></span><span x-show="filterOn" x-cloak>/<span x-text="divisions.length"></span></span> divisions
+                <span x-text="visibleCount"></span><span x-show="filterOn" x-cloak>/<span x-text="divisionCount"></span></span> divisions
                 <span x-show="dirty" class="badge bg-yellow text-dark ms-1" x-cloak>unsaved changes</span>
                 <span x-show="unplacedCount" class="badge bg-orange ms-1" x-cloak
-                      x-text="unplacedCount + ' not placed'" title="Registered after this arrangement was saved — drag them into a division"></span>
+                      x-text="unplacedCount + ' not placed'" title="In no division, so no card in the by-division print — drag them into one"></span>
                 <span x-show="staleCount" class="badge bg-red ms-1" x-cloak
                       x-text="staleCount + ' no longer in ' + discipline" title="Changed their participation since this was arranged — remove or keep by hand"></span>
             </span>
@@ -112,7 +112,7 @@
 
     {{-- Filter bar: the On/Off switch flips between the full and filtered view;
          the checkbox selections persist across the toggle. --}}
-    <div class="card mb-3 shadow-sm" x-show="divisions.length" style="position: sticky; top: 0; z-index: 20;">
+    <div class="card mb-3 shadow-sm" x-show="divisions.length > 0 && (divisionCount || unplacedCount)" style="position: sticky; top: 0; z-index: 20;">
         <div class="card-body py-2">
             <div class="d-flex flex-wrap align-items-center gap-3">
                 <label class="form-check form-switch form-check-inline mb-0 fw-bold">
@@ -154,7 +154,7 @@
         </div>
     </div>
 
-    <template x-if="divisions.length === 0">
+    <template x-if="divisionCount === 0 && unplacedCount === 0">
         <div class="empty">
             <div class="empty-title">No divisions yet</div>
             <div class="empty-subtitle text-muted">Click <b>Natural divisions</b> to see every belt, sex and age group on its own, then drag divisions together to combine them. <b>Auto-combine</b> does a first pass of the combining for you.</div>
@@ -173,8 +173,8 @@
                      @dragleave="if (mergeOverKey === div._key) mergeOverKey = null"
                      @drop.prevent="mergeDrop(div)">
                     <div class="card-header d-flex align-items-center gap-2">
-                        <span class="div-handle text-muted" style="cursor:grab" title="Drag to reorder">&#x283F;</span>
-                        <span class="text-muted" draggable="true" style="cursor:grab"
+                        <span class="div-handle text-muted" style="cursor:grab" title="Drag to reorder" x-show="!div.pending">&#x283F;</span>
+                        <span class="text-muted" draggable="true" style="cursor:grab" x-show="!div.pending"
                               title="Drag onto another division to merge them"
                               @dragstart="mergeDragStart(div, $event)" @dragend="mergeSourceKey = null; mergeOverKey = null">&#10697;</span>
                         <input type="text" class="form-control form-control-sm border-0 fw-bold p-1"
@@ -183,20 +183,21 @@
                         <span class="badge ms-auto" :class="div.pending ? 'bg-orange' : (div.members.length < 4 ? 'bg-danger' : 'bg-blue')"
                               x-text="div.members.length"></span>
                         <button type="button" class="btn btn-sm btn-ghost-secondary p-1" title="Merge into next"
-                                x-show="di < divisions.length - 1" @click="mergeIntoNext(di)">&#8681;</button>
-                        <button type="button" class="btn btn-sm btn-ghost-danger p-1" title="Remove division"
-                                @click="removeDivision(di)">&times;</button>
+                                x-show="!div.pending && di < divisions.length - 1" @click="mergeIntoNext(di)">&#8681;</button>
+                        <button type="button" class="btn btn-sm btn-ghost-danger p-1" title="Remove division (its people go to Not placed)"
+                                x-show="!div.pending" @click="removeDivision(di)">&times;</button>
                     </div>
                     <div x-show="div.pending" class="card-body py-2 small text-muted border-bottom">
-                        Registered after this arrangement was saved. Drag each into a division —
-                        anyone left here isn't saved into one and shows up here again.
+                        Not in any division — registered after the last save, missing the age, sex or
+                        rank to place them, or taken out by hand. Drag each into a division. Anyone left
+                        here is saved in no division and gets no card in the by-division print.
                     </div>
                     <div class="list-group list-group-flush member-list flex-grow-1" x-init="makeMembersSortable($el, div)"
                          style="min-height: 3rem;">
                         <template x-for="m in div.members" :key="m.id">
                             <div class="list-group-item py-1 px-2" :data-reg="m.id" style="cursor:grab">
-                                <div class="d-flex align-items-center">
-                                    <div class="text-truncate">
+                                <div class="d-flex align-items-start">
+                                    <div class="text-truncate flex-grow-1">
                                         <span class="fw-bold" x-text="m.name"></span>
                                         <span class="text-muted small" x-text="'· ' + (m.school || '')"></span>
                                         <div class="text-muted small">
@@ -208,6 +209,9 @@
                                         <span x-show="m.stale" class="badge bg-red-lt mt-1"
                                               x-text="'No longer competing in ' + discipline"></span>
                                     </div>
+                                    <button type="button" class="btn btn-sm btn-ghost-secondary p-1 ms-1 no-drag"
+                                            x-show="!div.pending" title="Take out of this division (to Not placed)"
+                                            @click.stop="unplace(div, m)">&times;</button>
                                 </div>
                             </div>
                         </template>
@@ -287,6 +291,7 @@
             divisions: [],
             ranks: config.ranks || [],
             loading: false,
+            memberDragging: false,
             saving: false,
             dirty: false,
             mergeSourceKey: null,
@@ -318,6 +323,11 @@
                 return this.divisions.reduce((n, d) => n + d.members.length, 0);
             },
 
+            // Real divisions — everything but the not-placed group.
+            get divisionCount() {
+                return this.divisions.filter((d) => !d.pending).length;
+            },
+
             get unplacedCount() {
                 return this.divisions.filter((d) => d.pending).reduce((n, d) => n + d.members.length, 0);
             },
@@ -347,7 +357,9 @@
             // A division shows when it holds at least one member matching every
             // active filter dimension. Filter Off shows everything.
             divisionVisible(div) {
-                if (div.pending && !div.members.length) return false; // everyone placed
+                // The not-placed group shows while it holds anyone, and as a drop
+                // target whenever a person is being dragged.
+                if (div.pending) return div.members.length > 0 || this.memberDragging;
                 if (!this.filterOn) return true;
                 return div.members.some((m) =>
                     this.filter.sex.includes(m.sex) &&
@@ -414,7 +426,7 @@
             // Give each division a stable client key so Alpine's x-for keeps
             // DOM nodes aligned as arrays change.
             setDivisions(list) {
-                this.divisions = list.map((d) => ({
+                const divisions = list.map((d) => ({
                     _key: ++this._keySeq,
                     id: d.id ?? null,
                     label: d.label ?? '',
@@ -423,6 +435,33 @@
                     pending: !!d.pending,
                     _custom: !!d.pending,
                 }));
+                // Always keep exactly one not-placed group, first, so there is
+                // somewhere to take people out to.
+                const pending = divisions.filter((d) => d.pending);
+                const rest = divisions.filter((d) => !d.pending);
+                const group = pending[0] ?? this.newPendingGroup();
+                pending.slice(1).forEach((p) => group.members.push(...p.members));
+                this.divisions = [group, ...rest];
+            },
+
+            newPendingGroup() {
+                return { _key: ++this._keySeq, id: null, label: @js(\App\Services\EventDivisionService::UNPLACED_LABEL),
+                         members: [], pending: true, _custom: true };
+            },
+
+            get pendingGroup() {
+                return this.divisions.find((d) => d.pending);
+            },
+
+            // Take one person out of a division, back to Not placed.
+            unplace(div, m) {
+                const i = div.members.indexOf(m);
+                if (i < 0) return;
+                this.pushHistory();
+                div.members.splice(i, 1);
+                this.pendingGroup.members.push(m);
+                this.relabel(div);
+                this.dirty = true;
             },
 
             // --- Undo ---------------------------------------------------------
@@ -497,6 +536,8 @@
 
             printByDivision() {
                 if (! this.published) return;
+                const n = this.unplacedCount;
+                if (n && !confirm(n + (n === 1 ? ' person isn\'t' : ' people aren\'t') + ' in a division and won\'t get a card. Print anyway?')) return;
                 const sep = this.printByDivisionUrl.includes('?') ? '&' : '?';
                 window.open(this.printByDivisionUrl + (this.printCovers ? sep + 'covers=1' : ''), '_blank');
             },
@@ -546,7 +587,12 @@
                     group: 'members',
                     animation: 150,
                     ghostClass: 'bg-primary-lt',
+                    // The per-person × is a button, not a drag start.
+                    filter: '.no-drag',
+                    preventOnFilter: false,
+                    onStart: () => { this.memberDragging = true; },
                     onEnd: (evt) => {
+                        this.memberDragging = false;
                         const fromDiv = evt.from?._division;
                         const toDiv = evt.to?._division;
 
@@ -585,22 +631,16 @@
             },
 
             removeDivision(di) {
+                if (this.divisions[di].pending) return;
                 this.pushHistory();
-                // Members of a removed division become Unassigned (kept, not lost).
+                // Members of a removed division go to Not placed (kept, not lost).
                 const removed = this.divisions.splice(di, 1)[0];
-                if (removed.members.length) {
-                    let un = this.divisions.find((d) => d.label === 'Unassigned' && !d.pending);
-                    if (!un) {
-                        un = { _key: ++this._keySeq, id: null, label: 'Unassigned', members: [] };
-                        this.divisions.push(un);
-                    }
-                    un.members.push(...removed.members);
-                }
+                this.pendingGroup.members.push(...removed.members);
                 this.dirty = true;
             },
 
             mergeIntoNext(di) {
-                if (di >= this.divisions.length - 1) return;
+                if (di >= this.divisions.length - 1 || this.divisions[di].pending) return;
                 this.pushHistory();
                 const next = this.divisions[di + 1];
                 next.members.unshift(...this.divisions[di].members);

@@ -243,3 +243,20 @@ it('offers late registrants when restoring an older version too', function () {
     expect($board[0]['pending'])->toBeTrue();
     expect(array_column($board[0]['members'], 'id'))->toBe([$r[1]]);
 });
+
+it('puts people the arranger cannot place into the leading not-placed group', function () {
+    $event = divCombinedEvent('natural-unplaced-'.uniqid());
+    $placed = traitReg($event, 'M', -4, '2010-01-01');
+    $noSex = traitReg($event, 'M', -4, '2010-01-01');
+    \DB::table('users')->where('id', EventRegistration::find($noSex)->user_id)->update(['sex' => null]);
+
+    foreach (['natural', 'auto'] as $pass) {
+        $board = (new EventDivisionService())->{$pass}($event->fresh(), 'sparring');
+
+        expect($board[0]['pending'])->toBeTrue();
+        expect($board[0]['label'])->toBe(EventDivisionService::UNPLACED_LABEL);
+        expect(array_column($board[0]['members'], 'id'))->toBe([$noSex]);
+        expect(collect($board)->slice(1)->every(fn ($d) => ! $d['pending']))->toBeTrue();
+        expect(array_column($board[1]['members'], 'id'))->toBe([$placed]);
+    }
+});
