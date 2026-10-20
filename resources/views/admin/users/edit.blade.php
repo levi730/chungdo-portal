@@ -47,6 +47,14 @@
                     <div class="card">
                         <div class="card-header"><h3 class="card-title">Profile</h3></div>
                         <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <span class="avatar avatar-xl avatar-rounded me-3"
+                                      style="background-image: url(@if ($user->avatar) {{ asset('storage/avatars/'.$user->avatar) }} @else '/img/default_avatar.png' @endif)"></span>
+                                <div>
+                                    <div class="fw-bold fs-3">{{ $user->full_name }}</div>
+                                    <div class="text-muted">{{ $user->email }}</div>
+                                </div>
+                            </div>
                             <div class="row">
                                 <div class="col-sm mb-3">
                                     <label class="form-label required">First Name</label>
