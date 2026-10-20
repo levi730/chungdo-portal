@@ -292,6 +292,15 @@
             init() {
                 this.filter.ranks = this.allRankIds();
                 this.setDivisions(config.initial || []);
+
+                // The board is client-side until saved, and every way off this page
+                // (the Sparring/Forms toggle, subnav, back, closing the tab) is a
+                // full navigation — warn before unsaved changes are thrown away.
+                window.addEventListener('beforeunload', (e) => {
+                    if (!this.dirty) return;
+                    e.preventDefault();
+                    e.returnValue = '';
+                });
             },
 
             get totalMembers() {
