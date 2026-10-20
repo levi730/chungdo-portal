@@ -168,7 +168,8 @@
         <template x-for="(div, di) in divisions" :key="div._key">
             <div class="col-md-6 col-lg-4 division-card" x-show="divisionVisible(div)">
                 <div class="card h-100 d-flex flex-column"
-                     :class="{ 'border-danger': !div.pending && div.members.length < 4, 'border-warning border-3': div.pending, 'border-primary border-3': mergeOverKey === div._key }"
+                     :class="{ 'border-danger': !div.pending && div.members.length < 4, 'border-warning border-3': div.pending && div.members.length, 'border-primary border-3': mergeOverKey === div._key }"
+                     :style="div.pending && !div.members.length ? 'border-style: dashed' : ''"
                      @dragover.prevent="if (mergeSourceKey && mergeSourceKey !== div._key && !div.pending) mergeOverKey = div._key"
                      @dragleave="if (mergeOverKey === div._key) mergeOverKey = null"
                      @drop.prevent="mergeDrop(div)">
@@ -188,9 +189,10 @@
                                 x-show="!div.pending" @click="removeDivision(di)">&times;</button>
                     </div>
                     <div x-show="div.pending" class="card-body py-2 small text-muted border-bottom">
-                        Not in any division — registered after the last save, missing the age, sex or
-                        rank to place them, or taken out by hand. Drag each into a division. Anyone left
-                        here is saved in no division and gets no card in the by-division print.
+                        <span x-show="!div.members.length">Drag someone here, or click the &times; on their row, to take them out of a division.</span>
+                        <span x-show="div.members.length">Not in any division — registered after the last save, missing the age,
+                        sex or rank to place them, or taken out by hand. Drag each into a division. Anyone left here is
+                        saved in no division and gets no card in the by-division print.</span>
                     </div>
                     <div class="list-group list-group-flush member-list flex-grow-1" x-init="makeMembersSortable($el, div)"
                          style="min-height: 3rem;">
@@ -291,7 +293,6 @@
             divisions: [],
             ranks: config.ranks || [],
             loading: false,
-            memberDragging: false,
             saving: false,
             dirty: false,
             mergeSourceKey: null,
@@ -357,9 +358,10 @@
             // A division shows when it holds at least one member matching every
             // active filter dimension. Filter Off shows everything.
             divisionVisible(div) {
-                // The not-placed group shows while it holds anyone, and as a drop
-                // target whenever a person is being dragged.
-                if (div.pending) return div.members.length > 0 || this.memberDragging;
+                // The not-placed group is always on a non-empty board, as a drop
+                // target. Showing it only mid-drag shifted every card one slot as
+                // the drag began, so drops landed on the wrong division.
+                if (div.pending) return this.divisionCount > 0 || div.members.length > 0;
                 if (!this.filterOn) return true;
                 return div.members.some((m) =>
                     this.filter.sex.includes(m.sex) &&
@@ -590,15 +592,20 @@
                     // The per-person × is a button, not a drag start.
                     filter: '.no-drag',
                     preventOnFilter: false,
-                    onStart: () => { this.memberDragging = true; },
                     onEnd: (evt) => {
-                        this.memberDragging = false;
                         const fromDiv = evt.from?._division;
                         const toDiv = evt.to?._division;
 
-                        // Discard whatever Sortable did to the DOM; we drive
-                        // everything from the data model and let Alpine rebuild.
-                        if (evt.item?.parentNode) evt.item.remove();
+                        // Undo Sortable's DOM move: put the row back where it
+                        // started, then change the data and let Alpine move it.
+                        // (Removing it instead loses the row whenever the data
+                        // doesn't change — e.g. a drop back into its own spot —
+                        // because Alpine still thinks it rendered that row.)
+                        if (evt.item && evt.from) {
+                            const rows = [...evt.from.children]
+                                .filter((c) => c !== evt.item && c.tagName !== 'TEMPLATE');
+                            evt.from.insertBefore(evt.item, rows[evt.oldIndex] ?? null);
+                        }
 
                         if (fromDiv && toDiv) {
                             const realMove = evt.from !== evt.to || evt.oldIndex !== evt.newIndex;
@@ -616,10 +623,6 @@
                             }
                         }
 
-                        // Rebuild the affected lists from data so the DOM always
-                        // matches — a chip can never be lost on an odd drop.
-                        if (fromDiv) fromDiv.members = fromDiv.members.slice();
-                        if (toDiv && toDiv !== fromDiv) toDiv.members = toDiv.members.slice();
                     },
                 });
             },
