@@ -22,3 +22,6 @@ Schedule::command('store:reconcile-orders')->everyFifteenMinutes()->withoutOverl
 // Cash/check remittances still not turned in after their event. The cash flow's
 // stand-in for a reconcile sweep: nothing to ask Stripe, so ask a person.
 Schedule::command('cash:remind-outstanding')->weeklyOn(1, '08:00');
+
+// users:prune-unverified is deliberately NOT scheduled. It deletes accounts,
+// and some unverified sign-ups are real people; run it by hand, --dry-run first.
