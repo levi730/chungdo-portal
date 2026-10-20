@@ -179,3 +179,67 @@ it('auto-arranges forms from forms/both competitors, combining sexes', function 
     expect($forms[0]['label'])->not->toContain('Boys');
     expect($forms[0]['label'])->not->toContain('Girls');
 });
+
+it('surfaces a registrant who joined after the save in a leading not-placed group', function () {
+    [$event, $r] = divEventWithRegs(2, 'late-'.uniqid());
+    $svc = new EventDivisionService();
+    $svc->save($event, [['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1]]]]);
+
+    // Nobody new yet: just the saved division.
+    expect($svc->board($event))->toHaveCount(1);
+
+    $late = User::factory()->create();
+    $event->registrations()->attach($late->id, ['amount_due' => 0, 'amount_paid' => 0]);
+    $lateReg = (int) EventRegistration::where('event_id', $event->id)->where('user_id', $late->id)->value('id');
+
+    $board = $svc->board($event);
+
+    expect($board)->toHaveCount(2);
+    expect($board[0]['pending'])->toBeTrue();
+    expect($board[0]['label'])->toBe(EventDivisionService::UNPLACED_LABEL);
+    expect(array_column($board[0]['members'], 'id'))->toBe([$lateReg]);
+    expect(array_column($board[1]['members'], 'id'))->toBe([$r[0], $r[1]]); // hand arrangement untouched
+});
+
+it('leaves the not-placed group out once everyone is in a division', function () {
+    [$event, $r] = divEventWithRegs(2, 'placed-'.uniqid());
+    $svc = new EventDivisionService();
+    $svc->save($event, [['id' => null, 'label' => 'Div A', 'members' => [$r[0]]]]);
+
+    expect($svc->board($event)[0]['pending'] ?? false)->toBeTrue(); // r[1] never placed
+
+    $divA = EventDivision::where('event_id', $event->id)->value('id');
+    $svc->save($event, [['id' => $divA, 'label' => 'Div A', 'members' => [$r[0], $r[1]]]]);
+
+    $board = $svc->board($event);
+    expect($board)->toHaveCount(1);
+    expect(collect($board)->contains(fn ($d) => $d['pending'] ?? false))->toBeFalse();
+});
+
+it('flags a member who switched out of the discipline as stale, without removing them', function () {
+    $event = divCombinedEvent('stale-'.uniqid());
+    $stays = traitReg($event, 'M', -4, '2010-01-01', 'both');
+    $leaves = traitReg($event, 'M', -4, '2010-01-01', 'both');
+    $svc = new EventDivisionService();
+    $svc->save($event, [['id' => null, 'label' => 'Div A', 'members' => [$stays, $leaves]]], 'sparring');
+
+    App\Models\EventRegistrationAddon::where('event_registration_id', $leaves)->update(['value' => 'forms']);
+
+    $board = $svc->board($event->fresh(), 'sparring');
+    $members = collect($board[0]['members'])->keyBy('id');
+
+    expect($board)->toHaveCount(1); // not re-offered as unplaced
+    expect($members[$stays]['stale'])->toBeFalse();
+    expect($members[$leaves]['stale'])->toBeTrue();
+});
+
+it('offers late registrants when restoring an older version too', function () {
+    [$event, $r] = divEventWithRegs(2, 'restore-late-'.uniqid());
+    $svc = new EventDivisionService();
+    $vid = $svc->save($event, [['id' => null, 'label' => 'Div A', 'members' => [$r[0]]]]);
+
+    $board = $svc->versionBoard(EventDivisionVersion::find($vid));
+
+    expect($board[0]['pending'])->toBeTrue();
+    expect(array_column($board[0]['members'], 'id'))->toBe([$r[1]]);
+});

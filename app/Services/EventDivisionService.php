@@ -17,8 +17,15 @@ class EventDivisionService
 {
     public function __construct(private DivisionArranger $arranger = new DivisionArranger()) {}
 
+    /** Label of the virtual group holding competitors who aren't in any division yet. */
+    public const UNPLACED_LABEL = 'New — not placed yet';
+
     /**
      * The saved arrangement for a discipline as board data, or an empty list.
+     * Competitors who registered (or switched into this discipline) after the
+     * save are surfaced in a leading UNPLACED group, and members who no longer
+     * compete in it are flagged `stale` — so a late registration is visible
+     * without rebuilding the board and losing hand-made merges.
      *
      * @return array<int, array>
      */
@@ -35,11 +42,17 @@ class EventDivisionService
             return [];
         }
 
-        return $divisions->map(fn (EventDivision $d) => [
+        $competitors = $this->competitors($event, $discipline);
+
+        $board = $divisions->map(fn (EventDivision $d) => [
             'id' => $d->id,
             'label' => $d->name,
-            'members' => $d->{$relation}->map(fn ($r) => $this->memberDto($r))->values()->all(),
+            'members' => $d->{$relation}
+                ->map(fn ($r) => $this->memberDto($r, ! $competitors->has($r->id)))
+                ->values()->all(),
         ])->values()->all();
+
+        return $this->withUnplaced($board, $competitors);
     }
 
     /**
@@ -189,15 +202,41 @@ class EventDivisionService
         $regIds = collect($version->data)->flatMap(fn ($d) => $d['members'] ?? [])->all();
         $regs = EventRegistration::whereIn('id', $regIds)->where('event_id', $version->event_id)
             ->with(['user.rank', 'user.school'])->get()->keyBy('id');
+        $competitors = $this->competitors($version->event, $version->discipline ?? EventDivision::DISCIPLINE_SPARRING);
 
-        return array_map(fn ($d) => [
+        $board = array_map(fn ($d) => [
             'id' => null,
             'label' => $d['label'] ?? '',
             'members' => collect($d['members'] ?? [])
                 ->filter(fn ($id) => $regs->has($id))
-                ->map(fn ($id) => $this->memberDto($regs[$id]))
+                ->map(fn ($id) => $this->memberDto($regs[$id], ! $competitors->has($id)))
                 ->values()->all(),
         ], $version->data);
+
+        return $this->withUnplaced($board, $competitors);
+    }
+
+    /**
+     * Prepend a `pending` group of competitors not in any of the board's
+     * divisions. The client never saves this group, so anyone left in it stays
+     * unplaced and reappears here on the next load.
+     */
+    private function withUnplaced(array $board, \Illuminate\Support\Collection $competitors): array
+    {
+        $placed = collect($board)->flatMap(fn ($d) => array_column($d['members'], 'id'))->flip();
+        $unplaced = $competitors->reject(fn ($r) => $placed->has($r->id));
+        if ($unplaced->isEmpty()) {
+            return $board;
+        }
+
+        array_unshift($board, [
+            'id' => null,
+            'label' => self::UNPLACED_LABEL,
+            'pending' => true,
+            'members' => $unplaced->map(fn ($r) => $this->memberDto($r))->values()->all(),
+        ]);
+
+        return $board;
     }
 
     /** Toggle a version's star; returns the new starred state. */
@@ -285,8 +324,12 @@ class EventDivisionService
             : in_array($choice, ['sparring', 'both'], true);
     }
 
-    /** @return array<string, mixed> */
-    private function memberDto(EventRegistration $reg): array
+    /**
+     * @param  bool  $stale  in a saved division but no longer competing in this
+     *                       discipline (changed their participation)
+     * @return array<string, mixed>
+     */
+    private function memberDto(EventRegistration $reg, bool $stale = false): array
     {
         $u = $reg->user;
 
@@ -299,6 +342,7 @@ class EventDivisionService
             'age' => $u?->age,
             'weight' => $u?->weight,
             'sex' => $u?->sex,
+            'stale' => $stale,
         ];
     }
 }

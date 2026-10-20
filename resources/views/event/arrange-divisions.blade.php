@@ -102,6 +102,10 @@
                 <span x-text="totalMembers"></span> registrants ·
                 <span x-text="visibleCount"></span><span x-show="filterOn" x-cloak>/<span x-text="divisions.length"></span></span> divisions
                 <span x-show="dirty" class="badge bg-yellow text-dark ms-1" x-cloak>unsaved changes</span>
+                <span x-show="unplacedCount" class="badge bg-orange ms-1" x-cloak
+                      x-text="unplacedCount + ' not placed'" title="Registered after this arrangement was saved — drag them into a division"></span>
+                <span x-show="staleCount" class="badge bg-red ms-1" x-cloak
+                      x-text="staleCount + ' no longer in ' + discipline" title="Changed their participation since this was arranged — remove or keep by hand"></span>
             </span>
         </div>
     </div>
@@ -164,8 +168,8 @@
         <template x-for="(div, di) in divisions" :key="div._key">
             <div class="col-md-6 col-lg-4 division-card" x-show="divisionVisible(div)">
                 <div class="card h-100 d-flex flex-column"
-                     :class="{ 'border-danger': div.members.length < 4, 'border-primary border-3': mergeOverKey === div._key }"
-                     @dragover.prevent="if (mergeSourceKey && mergeSourceKey !== div._key) mergeOverKey = div._key"
+                     :class="{ 'border-danger': !div.pending && div.members.length < 4, 'border-warning border-3': div.pending, 'border-primary border-3': mergeOverKey === div._key }"
+                     @dragover.prevent="if (mergeSourceKey && mergeSourceKey !== div._key && !div.pending) mergeOverKey = div._key"
                      @dragleave="if (mergeOverKey === div._key) mergeOverKey = null"
                      @drop.prevent="mergeDrop(div)">
                     <div class="card-header d-flex align-items-center gap-2">
@@ -174,13 +178,18 @@
                               title="Drag onto another division to merge them"
                               @dragstart="mergeDragStart(div, $event)" @dragend="mergeSourceKey = null; mergeOverKey = null">&#10697;</span>
                         <input type="text" class="form-control form-control-sm border-0 fw-bold p-1"
-                               x-model="div.label" @input="dirty = true; div._custom = true" @focus="pushHistory()">
-                        <span class="badge ms-auto" :class="div.members.length < 4 ? 'bg-danger' : 'bg-blue'"
+                               x-model="div.label" @input="dirty = true; div._custom = true" @focus="pushHistory()"
+                               :readonly="div.pending">
+                        <span class="badge ms-auto" :class="div.pending ? 'bg-orange' : (div.members.length < 4 ? 'bg-danger' : 'bg-blue')"
                               x-text="div.members.length"></span>
                         <button type="button" class="btn btn-sm btn-ghost-secondary p-1" title="Merge into next"
                                 x-show="di < divisions.length - 1" @click="mergeIntoNext(di)">&#8681;</button>
                         <button type="button" class="btn btn-sm btn-ghost-danger p-1" title="Remove division"
                                 @click="removeDivision(di)">&times;</button>
+                    </div>
+                    <div x-show="div.pending" class="card-body py-2 small text-muted border-bottom">
+                        Registered after this arrangement was saved. Drag each into a division —
+                        anyone left here isn't saved into one and shows up here again.
                     </div>
                     <div class="list-group list-group-flush member-list flex-grow-1" x-init="makeMembersSortable($el, div)"
                          style="min-height: 3rem;">
@@ -196,6 +205,8 @@
                                             <span x-text="(m.weight ?? '?') + ' lb'"></span>
                                             <span x-show="m.sex" x-text="'· ' + m.sex"></span>
                                         </div>
+                                        <span x-show="m.stale" class="badge bg-red-lt mt-1"
+                                              x-text="'No longer competing in ' + discipline"></span>
                                     </div>
                                 </div>
                             </div>
@@ -307,6 +318,15 @@
                 return this.divisions.reduce((n, d) => n + d.members.length, 0);
             },
 
+            get unplacedCount() {
+                return this.divisions.filter((d) => d.pending).reduce((n, d) => n + d.members.length, 0);
+            },
+
+            get staleCount() {
+                return this.divisions.filter((d) => !d.pending)
+                    .reduce((n, d) => n + d.members.filter((m) => m.stale).length, 0);
+            },
+
             get visibleCount() {
                 return this.divisions.filter((d) => this.divisionVisible(d)).length;
             },
@@ -327,6 +347,7 @@
             // A division shows when it holds at least one member matching every
             // active filter dimension. Filter Off shows everything.
             divisionVisible(div) {
+                if (div.pending && !div.members.length) return false; // everyone placed
                 if (!this.filterOn) return true;
                 return div.members.some((m) =>
                     this.filter.sex.includes(m.sex) &&
@@ -398,14 +419,16 @@
                     id: d.id ?? null,
                     label: d.label ?? '',
                     members: (d.members || []).slice(),
-                    _custom: false,
+                    // The not-yet-placed group is never saved and keeps its name.
+                    pending: !!d.pending,
+                    _custom: !!d.pending,
                 }));
             },
 
             // --- Undo ---------------------------------------------------------
             // Snapshot the board before every mutation; undo restores the last one.
             snapshot() {
-                return this.divisions.map((d) => ({ id: d.id, label: d.label, members: d.members.slice() }));
+                return this.divisions.map((d) => ({ id: d.id, label: d.label, pending: d.pending, members: d.members.slice() }));
             },
             pushHistory() {
                 this.history.push(this.snapshot());
@@ -566,7 +589,7 @@
                 // Members of a removed division become Unassigned (kept, not lost).
                 const removed = this.divisions.splice(di, 1)[0];
                 if (removed.members.length) {
-                    let un = this.divisions.find((d) => d.label === 'Unassigned');
+                    let un = this.divisions.find((d) => d.label === 'Unassigned' && !d.pending);
                     if (!un) {
                         un = { _key: ++this._keySeq, id: null, label: 'Unassigned', members: [] };
                         this.divisions.push(un);
@@ -597,7 +620,7 @@
                 const srcKey = this.mergeSourceKey;
                 this.mergeSourceKey = null;
                 this.mergeOverKey = null;
-                if (srcKey == null || srcKey === targetDiv._key) return;
+                if (srcKey == null || srcKey === targetDiv._key || targetDiv.pending) return;
 
                 const srcIdx = this.divisions.findIndex((d) => d._key === srcKey);
                 if (srcIdx === -1) return;
@@ -640,13 +663,15 @@
             async save() {
                 this.saving = true;
                 try {
-                    const payload = this.divisions.map((d) => ({
+                    // The not-yet-placed group stays unplaced: it is not a division.
+                    const kept = this.divisions.filter((d) => !d.pending);
+                    const payload = kept.map((d) => ({
                         id: d.id,
                         label: d.label,
                         members: d.members.map((m) => m.id),
                     }));
                     // Preserve hand-renamed flags across the reload (order is kept).
-                    const custom = this.divisions.map((d) => d._custom);
+                    const custom = kept.map((d) => d._custom);
                     const res = await fetch(this.saveUrl, {
                         method: 'POST',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -655,7 +680,9 @@
                     const data = await res.json();
                     if (data.ok) {
                         this.setDivisions(data.board);
-                        this.divisions.forEach((d, i) => { d._custom = custom[i] ?? false; });
+                        // Line the flags up against real divisions only — the reloaded
+                        // board may lead with a not-yet-placed group.
+                        this.divisions.filter((d) => !d.pending).forEach((d, i) => { d._custom = custom[i] ?? false; });
                         this.dirty = false;
                         // This save created a fresh (unstarred) version — track it.
                         this.currentVersionId = data.version ? data.version.id : this.currentVersionId;
