@@ -35,7 +35,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-
+        // One refused recipient must not stop a campaign — see the class.
+        $this->app->bind(
+            \Sendportal\Base\Pipelines\Campaigns\CreateMessages::class,
+            \App\Services\Sendportal\CreateMessages::class,
+        );
     }
 
     /**

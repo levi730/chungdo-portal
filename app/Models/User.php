@@ -457,8 +457,11 @@ class User extends Authenticatable implements MustVerifyEmail
                 $sub->save();
             }
         } else {
-            //create
-            if($this->mailings) {
+            // Create — never for an account being deleted. A sign-up has no
+            // subscriber until its first update (mailings is not set on the
+            // model at create time), so deleting an unverified bot account used
+            // to land here and subscribe the address it was removing.
+            if(!$deleted && $this->mailings) {
                 $r->store(Sendportal::currentWorkspaceId(), [
                     'email' => $this->email,
                     'first_name' => $this->firstname,
