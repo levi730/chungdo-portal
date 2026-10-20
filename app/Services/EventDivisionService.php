@@ -44,19 +44,43 @@ class EventDivisionService
 
     /**
      * Run the auto-arranger over the discipline's competitors (filtered by their
-     * participation choice) and return board data — not persisted.
+     * participation choice) and return board data — not persisted. This is the
+     * "combine small divisions for me" pass.
      *
      * @return array<int, array>
      */
     public function auto(Event $event, string $discipline = EventDivision::DISCIPLINE_SPARRING): array
     {
-        $regs = EventRegistration::where('event_id', $event->id)
+        $regs = $this->competitors($event, $discipline);
+
+        return $this->toBoard($this->arranger->arrange($regs, $discipline === EventDivision::DISCIPLINE_FORMS), $regs);
+    }
+
+    /**
+     * Every natural division (belt × sex × age group) on its own, uncombined, as
+     * board data — not persisted. The starting point for merging by hand.
+     *
+     * @return array<int, array>
+     */
+    public function natural(Event $event, string $discipline = EventDivision::DISCIPLINE_SPARRING): array
+    {
+        $regs = $this->competitors($event, $discipline);
+
+        return $this->toBoard($this->arranger->natural($regs), $regs);
+    }
+
+    /** The discipline's competitors, keyed by registration id. */
+    private function competitors(Event $event, string $discipline): \Illuminate\Support\Collection
+    {
+        return EventRegistration::where('event_id', $event->id)
             ->with(['user.rank', 'user.school', 'addonAnswers'])->get()
             ->filter(fn ($r) => $this->competesIn($event, $r, $discipline))
             ->keyBy('id');
+    }
 
-        $divisions = $this->arranger->arrange($regs, $discipline === EventDivision::DISCIPLINE_FORMS);
-
+    /** Arranger output → unsaved board data. */
+    private function toBoard(array $divisions, \Illuminate\Support\Collection $regs): array
+    {
         return array_map(fn ($d) => [
             'id' => null,
             'label' => $d['label'],

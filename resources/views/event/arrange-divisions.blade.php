@@ -18,6 +18,7 @@
         initial: @js($board),
         csrf: @js(csrf_token()),
         autoUrl: @js(route('event.arrange-divisions.auto', $slug).$discQuery),
+        naturalUrl: @js(route('event.arrange-divisions.natural', $slug).$discQuery),
         saveUrl: @js(route('event.arrange-divisions.save', $slug).$discQuery),
         ranks: @js($ranks),
         published: @js($published),
@@ -58,9 +59,17 @@
     @endif
 
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        <button type="button" class="btn btn-primary" @click="autoArrange()" :disabled="loading">
-            <span x-show="!loading">&#9889; Auto-arrange</span>
-            <span x-show="loading" x-cloak>Working…</span>
+        {{-- Natural: every belt × sex × age group on its own, to combine by hand.
+             Auto-combine: the older pass that merges small divisions for you. --}}
+        <button type="button" class="btn btn-primary" @click="naturalArrange()" :disabled="loading"
+                title="One division per belt, sex and age group — nothing combined">
+            <span x-show="loading !== 'natural'">&#9638; Natural divisions</span>
+            <span x-show="loading === 'natural'" x-cloak>Working…</span>
+        </button>
+        <button type="button" class="btn btn-outline-primary" @click="autoArrange()" :disabled="loading"
+                title="Combine small divisions automatically (adjacent ages, then adjacent belts)">
+            <span x-show="loading !== 'auto'">&#9889; Auto-combine</span>
+            <span x-show="loading === 'auto'" x-cloak>Working…</span>
         </button>
         <button type="button" class="btn btn-success" @click="save()" :disabled="!dirty || saving" title="Save (Ctrl/Cmd+S)">
             <span x-text="saving ? 'Saving…' : 'Save'"></span>
@@ -144,7 +153,7 @@
     <template x-if="divisions.length === 0">
         <div class="empty">
             <div class="empty-title">No divisions yet</div>
-            <div class="empty-subtitle text-muted">Click <b>Auto-arrange</b> for a first pass, then drag registrants to adjust.</div>
+            <div class="empty-subtitle text-muted">Click <b>Natural divisions</b> to see every belt, sex and age group on its own, then drag divisions together to combine them. <b>Auto-combine</b> does a first pass of the combining for you.</div>
         </div>
     </template>
 
@@ -252,6 +261,7 @@
             combineSexes: !!config.combineSexes,
             csrf: config.csrf,
             autoUrl: config.autoUrl,
+            naturalUrl: config.naturalUrl,
             saveUrl: config.saveUrl,
             versionsUrl: config.versionsUrl,
             versionBase: config.versionBase,
@@ -357,8 +367,10 @@
                 if (!members.length) return '';
                 const groups = [...new Set(members.map((m) => this.ageGroupOf(m.age)).filter(Boolean))];
                 const ranks = members.map((m) => m.rank_id).filter((r) => r != null);
-                // Forms divisions combine male/female — label by age + belt only.
-                const sexWord = this.combineSexes ? '' : this._sexWord(members, groups);
+                // Forms divisions that mix male/female are labelled by age + belt
+                // only; a single-sex one (e.g. straight from Natural) keeps its word.
+                const mixed = members.some((m) => m.sex === 'M') && members.some((m) => m.sex === 'F');
+                const sexWord = (this.combineSexes && mixed) ? '' : this._sexWord(members, groups);
                 return [sexWord, this._ageLabel(groups), ranks.length ? this._beltLabel(ranks) : '']
                     .filter(Boolean).join(' ');
             },
@@ -588,11 +600,22 @@
                 this.dirty = true;
             },
 
-            async autoArrange() {
-                if (this.dirty && !confirm('Auto-arrange discards your unsaved changes and rebuilds from scratch. Continue?')) return;
-                this.loading = true;
+            autoArrange() {
+                return this.loadArrangement(this.autoUrl, 'auto',
+                    'Auto-combine discards your unsaved changes and rebuilds from scratch. Continue?');
+            },
+
+            naturalArrange() {
+                return this.loadArrangement(this.naturalUrl, 'natural',
+                    'Natural divisions discards your unsaved changes and rebuilds from scratch. Continue?');
+            },
+
+            // Fetch a fresh (unsaved) arrangement from the server onto the board.
+            async loadArrangement(url, kind, confirmText) {
+                if (this.dirty && !confirm(confirmText)) return;
+                this.loading = kind;
                 try {
-                    const res = await fetch(this.autoUrl, {
+                    const res = await fetch(url, {
                         method: 'POST',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                     });

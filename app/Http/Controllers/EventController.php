@@ -1163,6 +1163,15 @@ class EventController extends Controller
         return response()->json(['divisions' => (new \App\Services\EventDivisionService())->auto($event, $discipline)]);
     }
 
+    /** Every natural division on its own (not persisted), for merging by hand. */
+    public function arrangeDivisionsNatural(Request $request, $slug)
+    {
+        $event = Event::where('slug', $slug)->firstOrFail();
+        $discipline = $this->resolveDiscipline($event, $request);
+
+        return response()->json(['divisions' => (new \App\Services\EventDivisionService())->natural($event, $discipline)]);
+    }
+
     /** Persist the current board arrangement. */
     public function arrangeDivisionsSave(Request $request, $slug)
     {

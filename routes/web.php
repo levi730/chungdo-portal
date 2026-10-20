@@ -164,6 +164,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:event.reorganizeDivisions')->group(function () {
         Route::get('/event/{slug}/arrange-divisions', [\App\Http\Controllers\EventController::class, 'arrangeDivisions'])->name('event.arrange-divisions');
         Route::post('/event/{slug}/arrange-divisions/auto', [\App\Http\Controllers\EventController::class, 'arrangeDivisionsAuto'])->name('event.arrange-divisions.auto');
+        Route::post('/event/{slug}/arrange-divisions/natural', [\App\Http\Controllers\EventController::class, 'arrangeDivisionsNatural'])->name('event.arrange-divisions.natural');
         Route::post('/event/{slug}/arrange-divisions/save', [\App\Http\Controllers\EventController::class, 'arrangeDivisionsSave'])->name('event.arrange-divisions.save');
         Route::get('/event/{slug}/arrange-divisions/versions', [\App\Http\Controllers\EventController::class, 'arrangeDivisionsVersions'])->name('event.arrange-divisions.versions');
         Route::get('/event/{slug}/arrange-divisions/versions/{versionId}', [\App\Http\Controllers\EventController::class, 'arrangeDivisionsRestore'])->name('event.arrange-divisions.restore');

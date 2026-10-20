@@ -170,3 +170,42 @@ it('sparring still splits the same set by sex', function () {
     expect($forms)->toHaveCount(1);
     expect($forms[0]['label'])->toBe('16-39 Green Belt');
 });
+
+/** Natural: every belt × sex × age group alone, nothing combined. */
+function natural(array $regs): array
+{
+    return (new DivisionArranger())->natural(collect($regs));
+}
+
+it('natural keeps every belt, sex and age group apart however small', function () {
+    // Each of these would be combined by arrange(); natural leaves all five alone.
+    $divisions = natural([
+        ...regs(1, 1, 'M|05|-6'), ...regs(2, 1, 'F|05|-6'),   // white mini pee wee, boy + girl
+        ...regs(3, 1, 'M|09|-6'),                             // white pee wee
+        ...regs(4, 2, 'M|16|-5'), ...regs(10, 2, 'M|16|-6'),  // yellow + white adult men
+    ]);
+
+    expect(collect($divisions)->pluck('label')->all())->toBe([
+        "Men's 16-39 Yellow Belt",
+        'Boys 5-8 White Belt',
+        'Boys 9-11 White Belt',
+        "Men's 16-39 White Belt",
+        'Girls 5-8 White Belt',
+    ]);
+    expect(collect($divisions)->map(fn ($d) => count($d['members']))->all())->toBe([2, 1, 1, 2, 1]);
+});
+
+it('natural orders by belt high to low, then males before females, then age', function () {
+    $divisions = natural([
+        reg(1, 'F|40|-4'), reg(2, 'M|40|-4'), reg(3, 'M|12|-4'), reg(4, 'F|16|1'), reg(5, 'M|16|-7'),
+    ]);
+
+    expect(collect($divisions)->pluck('members')->all())->toBe([[4], [3], [2], [1], [5]]);
+});
+
+it('natural keeps black belt degrees apart and buckets the rest as Unassigned', function () {
+    $divisions = natural([reg(1, 'M|40|3'), reg(2, 'M|40|2'), reg(3, null)]);
+
+    expect(collect($divisions)->pluck('label')->all())
+        ->toBe(["Men's 40+ 3rd Degree Black", "Men's 40+ 2nd Degree Black", 'Unassigned']);
+});

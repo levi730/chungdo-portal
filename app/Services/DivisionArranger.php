@@ -89,6 +89,50 @@ class DivisionArranger
         return $out;
     }
 
+    /**
+     * Every natural division on its own — one per belt rank × sex × age group,
+     * nothing combined — so an organizer can see the raw breakdown and merge by
+     * hand. Ordered belt (high → low), then males before females, then age
+     * (youngest → oldest). Applies to forms as well: the sexes are shown apart
+     * so they can be combined deliberately.
+     *
+     * @param  Collection  $registrations  EventRegistration models with `user` loaded
+     * @return array<int, array{label: string, sex: ?string, members: int[]}>
+     */
+    public function natural(Collection $registrations): array
+    {
+        $groups = [];
+        $unassigned = [];
+        foreach ($registrations as $reg) {
+            $traits = $this->traits($reg);
+            if (! $traits) {
+                $unassigned[] = $reg->id;
+                continue;
+            }
+            $key = $traits['rank'].'|'.$traits['sex'].'|'.$traits['age'];
+            $groups[$key][] = $traits + ['id' => $reg->id];
+        }
+
+        $sortKey = fn (array $m) => [
+            array_search($m['rank'], self::BELT_ORDER, true),
+            $m['sex'] === 'M' ? 0 : 1,
+            array_search($m['age'], self::AGE_ORDER, true),
+        ];
+        uasort($groups, fn ($a, $b) => $sortKey($a[0]) <=> $sortKey($b[0]));
+
+        $out = array_values(array_map(fn ($items) => [
+            'label' => $this->label($items[0]['sex'], $items),
+            'sex' => $items[0]['sex'],
+            'members' => array_column($items, 'id'),
+        ], $groups));
+
+        if ($unassigned) {
+            $out[] = ['label' => 'Unassigned', 'sex' => null, 'members' => $unassigned];
+        }
+
+        return $out;
+    }
+
     /** Extract (sex, age code, rank) from a registrant's natural division, or null. */
     private function traits($reg): ?array
     {
