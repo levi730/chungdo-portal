@@ -68,10 +68,19 @@
                                 </div>
                             </div>
 
+                            {{-- Email and address boxes show the raw columns, like Phone: the
+                                 accessors fall back to the guardian's, and these boxes save what
+                                 they show. An inherited value appears as the placeholder. --}}
+                            @php($own = $user->getAttributes())
                             <div class="mb-3">
-                                <label class="form-label required">Email</label>
+                                <label class="form-label {{ $user->can_login ? 'required' : '' }}">Email</label>
                                 <input type="email" name="email" class="form-control"
-                                       value="{{ old('email', $user->email) }}" required autocomplete="off">
+                                       value="{{ old('email', $own['email'] ?? '') }}"
+                                       placeholder="{{ $user->email }}"
+                                       @if($user->can_login) required @endif autocomplete="off">
+                                @if(! $user->can_login && empty($own['email']) && $user->email)
+                                    <div class="form-hint">Uses the guardian's email. Leave empty to keep it that way.</div>
+                                @endif
                             </div>
 
                             <div class="mb-3">
@@ -86,29 +95,29 @@
                             <div class="mb-3">
                                 <label class="form-label">Street Address</label>
                                 <input type="text" name="address1" class="form-control"
-                                       value="{{ old('address1', $user->address1) }}" autocomplete="off">
+                                       value="{{ old('address1', $own['address1'] ?? '') }}" placeholder="{{ $user->address1 }}" autocomplete="off">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Street Address 2</label>
                                 <input type="text" name="address2" class="form-control"
-                                       value="{{ old('address2', $user->address2) }}" autocomplete="off">
+                                       value="{{ old('address2', $own['address2'] ?? '') }}" placeholder="{{ $user->address2 }}" autocomplete="off">
                             </div>
 
                             <div class="row">
                                 <div class="col-sm-7 mb-3">
                                     <label class="form-label">City</label>
                                     <input type="text" name="city" class="form-control"
-                                           value="{{ old('city', $user->city) }}" autocomplete="off">
+                                           value="{{ old('city', $own['city'] ?? '') }}" placeholder="{{ $user->city }}" autocomplete="off">
                                 </div>
                                 <div class="col-sm-2 mb-3">
                                     <label class="form-label">State</label>
                                     <input type="text" name="state" class="form-control" maxlength="2"
-                                           value="{{ old('state', $user->state) }}" autocomplete="off">
+                                           value="{{ old('state', $own['state'] ?? '') }}" placeholder="{{ $user->state }}" autocomplete="off">
                                 </div>
                                 <div class="col-sm-3 mb-3">
                                     <label class="form-label">Zip</label>
                                     <input type="text" name="zip" class="form-control"
-                                           value="{{ old('zip', $user->zip) }}" autocomplete="off">
+                                           value="{{ old('zip', $own['zip'] ?? '') }}" placeholder="{{ $user->zip }}" autocomplete="off">
                                 </div>
                             </div>
 

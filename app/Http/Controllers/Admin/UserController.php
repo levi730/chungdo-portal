@@ -57,10 +57,22 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        // Typing the guardian's own address on a dependent means "use the
+        // guardian's": store nothing, so the dependent keeps inheriting it if it
+        // changes. Done before validation, where it would fail as already taken.
+        if (! $user->can_login && filled($request->input('email'))) {
+            $guardian = $user->primaryGuardian() ?? $user->responsible_user;
+            if ($guardian && strcasecmp(trim($request->input('email')), (string) $guardian->email) === 0) {
+                $request->merge(['email' => null]);
+            }
+        }
+
         $validated = $request->validate([
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            // A dependent without a login usually has no email of its own and
+            // inherits the guardian's, so the box may be left empty for them.
+            'email' => [$user->can_login ? 'required' : 'nullable', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:30'],
             'address1' => ['nullable', 'string', 'max:255'],
             'address2' => ['nullable', 'string', 'max:255'],
@@ -83,7 +95,7 @@ class UserController extends Controller
         $user->forceFill([
             'firstname' => $validated['firstname'],
             'lastname' => $validated['lastname'],
-            'email' => $validated['email'],
+            'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'address1' => $validated['address1'] ?? null,
             'address2' => $validated['address2'] ?? null,
