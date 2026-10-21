@@ -168,7 +168,7 @@
         <template x-for="(div, di) in divisions" :key="div._key">
             <div class="col-md-6 col-lg-4 division-card" x-show="divisionVisible(div)">
                 <div class="card h-100 d-flex flex-column"
-                     :class="{ 'border-danger': !div.pending && div.members.length < 4, 'border-warning border-3': div.pending && div.members.length, 'border-primary border-3': mergeOverKey === div._key }"
+                     :class="{ 'border-danger': !div.pending && div.members.length < 4, 'border-warning border-3': div.pending && div.members.length, 'border-primary border-3': mergeOverKey === div._key, 'opacity-50': mergeSourceKey === div._key }"
                      :style="div.pending && !div.members.length ? 'border-style: dashed' : ''"
                      @dragover.prevent="if (mergeSourceKey && mergeSourceKey !== div._key && !div.pending) mergeOverKey = div._key"
                      @dragleave="if (mergeOverKey === div._key) mergeOverKey = null"
@@ -657,6 +657,14 @@
                 this.mergeSourceKey = div._key;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', String(div._key)); // Firefox needs data set
+                // Drag the whole title bar, not just the small handle glyph, so it
+                // is obvious which division is in hand. Keep the grab point under
+                // the cursor.
+                const header = e.target.closest('.card-header');
+                if (header && e.dataTransfer.setDragImage) {
+                    const r = header.getBoundingClientRect();
+                    e.dataTransfer.setDragImage(header, e.clientX - r.left, e.clientY - r.top);
+                }
             },
 
             mergeDrop(targetDiv) {
