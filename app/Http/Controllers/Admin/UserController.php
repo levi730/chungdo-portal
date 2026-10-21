@@ -88,7 +88,11 @@ class UserController extends Controller
             'sex' => ['nullable', 'in:F,M'],
             'roles' => ['array'],
             'roles.*' => [Rule::in(RoleAssignment::assignableBy($request->user())->all())],
-            'password' => ['nullable', 'confirmed', PasswordRule::defaults()],
+            // Sign-in is given through the family invite, which also wires up
+            // the household's guardianships; a password set here would skip it.
+            'password' => $user->can_login
+                ? ['nullable', 'confirmed', PasswordRule::defaults()]
+                : ['prohibited'],
             'sync_to_zulip' => ['nullable', 'boolean'],
         ]);
 
@@ -125,6 +129,11 @@ class UserController extends Controller
 
     public function sendPasswordReset(Request $request, User $user)
     {
+        // Without a login there is no password to reset, and a dependent's
+        // inherited email would send the guardian a reset for the guardian's
+        // own account.
+        abort_unless($user->can_login, 403, 'This account cannot log in.');
+
         $status = Password::sendResetLink(['email' => $user->email]);
 
         return redirect()->route('admin.users.edit', $user)->with(

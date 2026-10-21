@@ -220,7 +220,9 @@
                     </div>
                 </div>
 
-                {{-- Password --}}
+                {{-- Password: only for accounts that can log in. Sign-in is given
+                     through the family's invite, not by setting a password here. --}}
+                @if($user->can_login)
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header"><h3 class="card-title">Password</h3></div>
@@ -239,6 +241,14 @@
                         </div>
                     </div>
                 </div>
+                @else
+                <div class="col-12">
+                    <div class="alert alert-info mb-0">
+                        {{ $user->full_name }} cannot log in, so there is no password to set or reset.
+                        To give them a login, invite them from their family's profile.
+                    </div>
+                </div>
+                @endif
 
                 <div class="col-12">
                     <div class="d-flex">
@@ -249,6 +259,7 @@
         </form>
 
         {{-- Separate action: email a password reset link --}}
+        @if($user->can_login)
         <div class="card mt-3">
             <div class="card-body d-flex align-items-center justify-content-between">
                 <div>
@@ -261,6 +272,7 @@
                 </form>
             </div>
         </div>
+        @endif
 
     </div>
 </div>

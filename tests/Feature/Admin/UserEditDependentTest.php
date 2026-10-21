@@ -99,3 +99,55 @@ it('shows the inherited email as a placeholder, not a value the form would save'
         ->assertDontSee('value="'.$guardian->email.'"', false)
         ->assertDontSee('value="Guardianville"', false);
 });
+
+/*
+ * Passwords. A dependent has no login, so there is nothing to set or reset —
+ * and the reset link goes to whoever owns the email, which for a dependent
+ * with an inherited address is the guardian's own account.
+ */
+
+it('hides the password fields and reset link on an account that cannot log in', function () {
+    [, $child] = householdWithChild();
+
+    $this->actingAs(dependentEditAdmin())
+        ->get(route('admin.users.edit', $child))
+        ->assertOk()
+        ->assertDontSee('name="password"', false)
+        ->assertDontSee(route('admin.users.password-reset', $child), false)
+        ->assertSee('cannot log in');
+});
+
+it('still offers both on an account that can log in', function () {
+    [$guardian] = householdWithChild();
+
+    $this->actingAs(dependentEditAdmin())
+        ->get(route('admin.users.edit', $guardian))
+        ->assertOk()
+        ->assertSee('name="password"', false)
+        ->assertSee(route('admin.users.password-reset', $guardian), false);
+});
+
+it('refuses to set a password on an account that cannot log in', function () {
+    [, $child] = householdWithChild();
+    $before = $child->getAttributes()['password'] ?? null;
+
+    $this->actingAs(dependentEditAdmin())
+        ->put(route('admin.users.update', $child), childForm($child, [
+            'password' => 'a-Long-enough-pass-123',
+            'password_confirmation' => 'a-Long-enough-pass-123',
+        ]))
+        ->assertSessionHasErrors('password');
+
+    expect($child->fresh()->getAttributes()['password'] ?? null)->toBe($before);
+});
+
+it('refuses a reset link for an account that cannot log in, and mails no one', function () {
+    \Illuminate\Support\Facades\Notification::fake();
+    [$guardian, $child] = householdWithChild();
+
+    $this->actingAs(dependentEditAdmin())
+        ->post(route('admin.users.password-reset', $child))
+        ->assertForbidden();
+
+    \Illuminate\Support\Facades\Notification::assertNothingSentTo($guardian);
+});
