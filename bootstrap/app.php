@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(AppServiceProvider::HOME);
 
         $middleware->append(\App\Http\Middleware\HandleInertiaRequests::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\EnsureUserCanLogin::class);
 
         $middleware->throttleApi();
     })

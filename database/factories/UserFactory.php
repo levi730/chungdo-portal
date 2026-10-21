@@ -46,7 +46,9 @@ class UserFactory extends Factory
             'height' => null,
             'weight' => null,
             'responsible_user_id' => null,
-            'can_login' => false,
+            // Matches the column default and a real sign-up. Sign-in refuses
+            // can_login = 0, so a dependent has to say so (belongs_to does).
+            'can_login' => true,
             'address1' => null,
             'address2' => null,
             'city' => null,
@@ -126,6 +128,7 @@ class UserFactory extends Factory
                 'responsible_user_id' => $user->id,
                 'school_id' => $user->school_id,
                 'address_same_as_resp_user' => true,
+                'can_login' => 0,
             ];
         });
     }
