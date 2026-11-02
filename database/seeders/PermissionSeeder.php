@@ -61,7 +61,18 @@ class PermissionSeeder extends Seeder
                     'event.manageAddons',
                     'event.approveRefunds',
                     'event.manage',
+                    'event.checkIn',
                     'store.manage',
+                ],
+            ],
+            [
+                // Day-of-event check-in staff. One permission, so a volunteer
+                // on the registration table can scan badges and mark people
+                // in without being an event admin. Hand it out from the admin
+                // user form, or through a committee.
+                'name' => 'event.checkin',
+                'permissions' => [
+                    'event.checkIn',
                 ],
             ],
             [
@@ -96,6 +107,12 @@ class PermissionSeeder extends Seeder
             'event.manageAddons',
             'event.approveRefunds',
             'event.manage',
+            // Opening the check-in pages and marking a registrant checked in.
+            // Before this existed the pages were gated on nothing at all and
+            // the nav link on the role NAME event.admin, which can() never
+            // matches — so every signed-in member could check people in by
+            // URL and only super admins could find the link.
+            'event.checkIn',
             // The merchandise store. Held by the same people who run events so
             // it isn't gated on manage-users, which is a narrower circle.
             'store.manage',

@@ -25,6 +25,8 @@ class CheckIn extends DataTableComponent
 
     public function mount($slug)
     {
+        abort_unless(auth()->user()?->can('event.checkIn'), 403);
+
         $this->slug = $slug;
         $this->eventId = \App\Models\Event::where('slug', $slug)->firstOrFail()->id;
     }
@@ -127,6 +129,8 @@ class CheckIn extends DataTableComponent
 
     public function checkIn($ids = null)
     {
+        abort_unless(auth()->user()?->can('event.checkIn'), 403);
+
         if ($ids) {
             $sel = $ids;
         } else {

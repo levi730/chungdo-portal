@@ -30,11 +30,22 @@ class CheckInDetails extends Component
 
     public function mount(string $slug, string $users): void
     {
+        $this->authorizeCheckIn();
+
         $event = Event::where('slug', $slug)->firstOrFail();
         $this->slug = $slug;
         $this->eventId = $event->id;
         $this->userIds = array_values(array_filter(array_map('intval', explode(',', $users))));
         $this->loadForms();
+    }
+
+    /**
+     * Repeated on the write, not just in mount(): a component action arrives
+     * on Livewire's endpoint, not through the route middleware.
+     */
+    private function authorizeCheckIn(): void
+    {
+        abort_unless(auth()->user()?->can('event.checkIn'), 403);
     }
 
     private function loadForms(): void
@@ -76,6 +87,8 @@ class CheckInDetails extends Component
 
     public function checkIn(int $index): void
     {
+        $this->authorizeCheckIn();
+
         $this->validate([
             "forms.$index.firstname" => 'required',
             "forms.$index.lastname" => 'required',

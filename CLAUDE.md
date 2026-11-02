@@ -209,6 +209,28 @@ been run on the local dev and test databases only. The seeder still reports
 `cms.html`, `cms.manage` and `school.payments` as unmanaged: they are in no role,
 on no user, and referenced nowhere in code.
 
+## Event check-in access
+
+Day-of check-in (`/event/{slug}/check-in`, the `CheckIn` and `CheckInDetails`
+Livewire components) is gated on **`event.checkIn`**. Before 2026-11-01 the
+routes had no gate at all and the nav link was `@can('event.admin')` — a role
+*name*, which `can()` never matches — so any verified member could check people
+in by URL and only super admins could find the link.
+
+- `event.admin` holds it, the coordinator allowlist has it, and a one-permission
+  **`event.checkin` role** exists so a door volunteer can be given just this
+  from the admin user form (or through a committee) without becoming an event
+  admin. Role name is lowercase `checkin`; permission is camelCase `checkIn`.
+- The Livewire components repeat the check in `mount()` and on the write,
+  because component actions arrive on Livewire's endpoint, not through the
+  route middleware.
+- The event subnav now opens for `event.checkIn` holders too, showing only
+  Main and Registrant Check-In; registrant lists and cards stay behind
+  `event.viewAllSchoolRegistrants`.
+- Needs `php artisan db:seed --class=PermissionSeeder` wherever it is deployed.
+  Run on local dev and test databases only so far. Until it runs in production
+  nobody — including event admins — can open check-in there.
+
 ## Member notes
 
 Notes about a member are `user_notes` (`App\Models\UserNote`, `User::notes()`).

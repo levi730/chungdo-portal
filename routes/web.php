@@ -205,8 +205,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/event/{slug}/register/adjust/finalize', [\App\Http\Controllers\EventController::class, 'registerAdjustFinalize'])->name('event.register-adjust-finalize');
     Route::get('/event/{slug}/register/complete', [\App\Http\Controllers\EventController::class, 'completeRegForm'])->name('event.complete-reg');
     Route::get('/event/{slug}/download/{id}', [\App\Http\Controllers\EventController::class, 'downloadMedia'])->name('event.download');
-    Route::get('/event/{slug}/check-in/{users}', [\App\Http\Controllers\EventController::class, 'eventCheckInDetails'])->name('event.check-in-details');
-    Route::get('/event/{slug}/check-in', [\App\Http\Controllers\EventController::class, 'eventCheckIn'])->name('event.check-in');
+    // Day-of check-in. The Livewire components behind these pages repeat the
+    // check in mount() and on the write, since component actions arrive on
+    // Livewire's own endpoint and never pass through this middleware.
+    Route::middleware('can:event.checkIn')->group(function () {
+        Route::get('/event/{slug}/check-in/{users}', [\App\Http\Controllers\EventController::class, 'eventCheckInDetails'])->name('event.check-in-details');
+        Route::get('/event/{slug}/check-in', [\App\Http\Controllers\EventController::class, 'eventCheckIn'])->name('event.check-in');
+    });
 
     Route::get('/event/{slug}/pass/apple', [\App\Http\Controllers\EventController::class, 'appleWalletPass'])->name('event.pass.apple');
     Route::get('/event/{slug}/pass/google', [\App\Http\Controllers\EventController::class, 'googleWalletPass'])->name('event.pass.google');

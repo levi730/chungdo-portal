@@ -85,6 +85,7 @@ it('grants every listed permission when most of them do not exist yet', function
     expect(Role::findByName('event.admin', 'web')->permissions->pluck('name')->sort()->values()->all())
         ->toBe([
             'event.approveRefunds',
+            'event.checkIn',
             'event.manage',
             'event.manageAddons',
             'event.reorganizeDivisions',

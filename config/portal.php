@@ -53,6 +53,7 @@ return [
         'event.manageAddons',
         'event.approveRefunds',
         'event.manage',
+        'event.checkIn',
         'store.manage',
         'school.manage',
         'users.manage',

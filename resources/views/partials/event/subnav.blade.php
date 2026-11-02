@@ -1,4 +1,4 @@
-@can('event.viewAllSchoolRegistrants')
+@canany(['event.viewAllSchoolRegistrants', 'event.checkIn'])
 
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
@@ -10,6 +10,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('event.register', $event->slug) }}">Main</a>
                     </li>
+                    @can('event.viewAllSchoolRegistrants')
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             View Registrants
@@ -73,6 +74,7 @@
                             @endif
                         </ul>
                     </li>
+                    @endcan
                     @can('event.reorganizeDivisions')
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.arrange-divisions', $event->slug) }}">Arrange Divisions</a>
@@ -101,7 +103,7 @@
                             </a>
                         </li>
                     @endcan
-                    @can('event.admin')
+                    @can('event.checkIn')
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.check-in', $event->slug) }}">Registrant Check-In</a>
                         </li>
@@ -115,4 +117,4 @@
     </nav>
 
 
-@endcan
+@endcanany
