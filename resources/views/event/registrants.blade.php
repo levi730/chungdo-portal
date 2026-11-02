@@ -11,12 +11,21 @@
 
 @section('content')
 <div class="container-xl">
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+
+    {{-- Column count: the ten fixed ones, plus Guests, plus the Refund column for event.issueRefunds holders. --}}
+    @php($cols = 10 + ($event->hasAddon('guests') ? 1 : 0) + (($canRefund ?? false) ? 1 : 0))
     <table class="table table-bordered">
         @foreach($grouped_data as $school=>$items)
 
             <tr>
                 <th class="bg-primary text-white" colspan="5"><h2>{{ $school }}</h2></th>
-                <th class="bg-primary text-white text-end" colspan="{{ $event->hasAddon('guests') ? 6 : 5 }}">Total: {{ count($items) }}</th>
+                <th class="bg-primary text-white text-end" colspan="{{ $cols - 5 }}">Total: {{ count($items) }}</th>
             </tr>
             <tr>
                 <th>First Name</th>
@@ -32,6 +41,9 @@
                     <th>Guests</th>
                 @endif
                 <th>Notes</th>
+                @if($canRefund ?? false)
+                    <th>Refund</th>
+                @endif
             </tr>
 
             @foreach($items as $user)
@@ -78,19 +90,28 @@
                         @endpush
 
                     </td>
+                    @if($canRefund ?? false)
+                        <td class="text-nowrap">
+                            {{-- Withdraw this person and refund what they paid, no request from them needed. --}}
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#withdraw{{ $user->pivot->id }}">Refund</button>
+                            @push('modals')
+                                @include('partials.event.withdraw-modal', ['user' => $user, 'event' => $event, 'summary' => $withdrawals[$user->pivot->id]])
+                            @endpush
+                        </td>
+                    @endif
                 </tr>
             @endforeach
 
             @if(!$loop->last)
                 <tr>
-                    <td colspan="{{ $event->hasAddon('guests') ? 11 : 10 }}">&nbsp;</td>
+                    <td colspan="{{ $cols }}">&nbsp;</td>
                 </tr>
             @endif
         @endforeach
 
         <tr>
 
-            <td colspan="{{ $event->hasAddon('guests') ? 11 : 10 }}" class="text-end fs-2 fw-bold">Grand Total: {{ $total_count }}</td>
+            <td colspan="{{ $cols }}" class="text-end fs-2 fw-bold">Grand Total: {{ $total_count }}</td>
         </tr>
     </table>
 </div>

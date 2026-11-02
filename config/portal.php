@@ -58,6 +58,7 @@ return [
         'school.manage',
         'users.manage',
         'payments.receive',
+        'event.issueRefunds',
     ],
 
 ];

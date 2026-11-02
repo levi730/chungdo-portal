@@ -8,6 +8,7 @@ use App\Models\EventRegistration;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -102,9 +103,32 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
 
         $this->event->loadMissing('addons');
 
-        $registrations = EventRegistration::where('event_id', $this->event->id)
+        // One entry per registration that was ever paid for: the live rows, plus
+        // registrations an admin has withdrawn (App\Services\RegistrationWithdrawal),
+        // which are archived with a snapshot of their lines. Without the archive
+        // a withdrawal would erase the charge row and leave only its refund.
+        // Older archive rows carry no snapshot and are not in this ledger.
+        $live = EventRegistration::where('event_id', $this->event->id)
             ->with('addonAnswers')
-            ->get();
+            ->get()
+            ->map(fn ($reg) => [
+                'user_id' => $reg->user_id,
+                'registering_user_id' => $reg->registering_user_id,
+                'payment_id' => $reg->payment_id,
+                'answers' => $reg->addonAnswers->map(fn ($a) => ['type' => $a->type, 'amount' => $a->amount])->all(),
+            ]);
+        $withdrawn = DB::table('event_registrations_deleted')
+            ->where('event_id', $this->event->id)
+            ->whereNotNull('payment_id')
+            ->whereNotNull('addon_answers')
+            ->get()
+            ->map(fn ($row) => [
+                'user_id' => $row->user_id,
+                'registering_user_id' => $row->registering_user_id,
+                'payment_id' => $row->payment_id,
+                'answers' => array_map(fn ($a) => ['type' => $a['type'] ?? '', 'amount' => $a['amount'] ?? 0], json_decode($row->addon_answers, true) ?: []),
+            ]);
+        $registrations = $live->concat($withdrawn);
 
         $refunds = Refund::where('event_id', $this->event->id)->get();
 
@@ -144,16 +168,16 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
             // itemized add-ons. That absorbs any discount into the base fee and
             // guarantees the breakdown reconciles to the Total.
             foreach ($group as $reg) {
-                foreach ($reg->addonAnswers as $answer) {
-                    if ($answer->type === 'registration_fee') {
+                foreach ($reg['answers'] as $answer) {
+                    if ($answer['type'] === 'registration_fee') {
                         continue; // rolled into the residual base fee below
                     }
-                    $amt = (float) ($answer->amount ?? 0);
+                    $amt = (float) ($answer['amount'] ?? 0);
                     if ($amt == 0.0) {
                         continue;
                     }
-                    $amounts[$answer->type] = round(($amounts[$answer->type] ?? 0) + $amt, 2);
-                    $typesPresent[$answer->type] = true;
+                    $amounts[$answer['type']] = round(($amounts[$answer['type']] ?? 0) + $amt, 2);
+                    $typesPresent[$answer['type']] = true;
                 }
             }
 
@@ -167,7 +191,7 @@ class FinancialsExport implements FromView, ShouldAutoSize, WithColumnFormatting
             // Payor: the Payment's user; fall back to the group's registering user.
             $payorId = $payment->user_id ?? $group->pluck('registering_user_id')->filter()->first();
             $payor = $payorId ? $users->get($payorId) : null;
-            $names = $group->map(fn ($reg) => $this->name($users->get($reg->user_id)))
+            $names = $group->map(fn ($reg) => $this->name($users->get($reg['user_id'])))
                 ->filter()->values()->implode(', ');
 
             $rows[] = [

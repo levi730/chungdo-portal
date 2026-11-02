@@ -111,6 +111,48 @@ Remaining build-order work: the pick list, the orders admin and the financials
 export, then refunds. The pick list is the operational one — it is how the
 shirts actually get handed out.
 
+## Admin refunds and withdrawals
+
+The Refund button on the registrants list (`/event/{slug}/registrants`)
+withdraws a registrant and refunds what they paid, with no request from them —
+the face-to-face conversation. `App\Services\RegistrationWithdrawal`;
+`EventController::withdrawRegistrant`; the modal is
+`partials/event/withdraw-modal.blade.php`. The member-initiated flow
+(`AddonChangeRequest` + `RefundApprover`) is unchanged and only ever trims
+add-ons; this one takes the whole registration, fee included.
+
+- **Gated on `event.issueRefunds`, held by no role.** Mike has it as
+  super.admin (the `Gate::before` bypass) and David Blevins through the
+  coordinator allowlist in `config/portal.php` — so it works for both without
+  the seeder running anywhere. Anyone else gets it from the admin user form,
+  which does need `php artisan db:seed --class=PermissionSeeder` first.
+- **The amount is the admin's.** The dialog suggests this person's own lines
+  (fee + per-student add-ons) and allows up to everything on the registration
+  (a household donation too), less anything already refunded on the same
+  payment. Lowering it keeps a processing fee; a shortfall comes off household
+  lines first, then the fee, then the rest — that is what the `Refund`
+  breakdown records. $0 is "keep the money, remove the person".
+- **Registrations older than the add-on refactor have no fee line** (728 of
+  844 paid ones on 2026-11-02). Their fee is *estimated* as the payment's
+  remainder split evenly across its registrants and flagged in the dialog.
+- **One Stripe refund per payment** the lines were charged on (a top-up is its
+  own payment), each on the event's account, each its own `Refund` row.
+  Cash/check payments get a `Refund` row with no Stripe id and the money is
+  handed back by hand; the financials export already shows those as outside
+  Stripe. An envelope still **outstanding** is refused — void it instead.
+- **The registration is archived, not soft-deleted.** `event_registrations_deleted`
+  now carries `registration_id`, `addon_answers` (a JSON snapshot of the
+  lines), `deleted_by_user_id` and `reason` (`withdrawn` / `void`). Deleting the
+  row cascades its `event_registration_addons` away, and those are the
+  itemization of money that really moved — so `FinancialsExport` reads the
+  archived rows that have a snapshot too, or a withdrawal would erase the
+  charge from the ledger and leave only its refund. Older archive rows have no
+  snapshot and stay out of the ledger, as before.
+- Everything runs in one transaction with a row lock on the registration,
+  Stripe calls included. If the records fail *after* a refund went out the
+  rollback cannot recall it; the refund ids are logged at error level.
+- No email goes to the member. The conversation already happened.
+
 ## Cash/check registrations
 
 An instructor registers students who paid them in cash or by check

@@ -159,6 +159,51 @@ class EventController extends Controller
         return back()->with('success', 'Request denied.');
     }
 
+    /**
+     * The Refund button on the registrants list: withdraw a registrant and
+     * refund what they paid, with no request from them. Face-to-face
+     * conversations end here. App\Services\RegistrationWithdrawal does the work;
+     * this only checks the permission and reports back.
+     */
+    public function withdrawRegistrant(Request $request, $slug = null, $registration = null)
+    {
+        if (! auth()->user()->can('event.issueRefunds')) {
+            abort(403);
+        }
+
+        $event = Event::where('slug', '=', $slug)->firstOrFail();
+        $reg = EventRegistration::where('event_id', $event->id)->whereKey($registration)->with('user')->firstOrFail();
+
+        $data = $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'note' => 'nullable|string|max:500',
+        ]);
+
+        $name = trim($reg->user->firstname.' '.$reg->user->lastname);
+
+        try {
+            $refunds = app(\App\Services\RegistrationWithdrawal::class)
+                ->withdraw($reg, (float) $data['amount'], auth()->user(), $data['note'] ?? null);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('error', collect($e->errors())->flatten()->implode(' '));
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Refund failed, nothing was changed: '.$e->getMessage());
+        }
+
+        $refunded = round(array_sum(array_map(fn ($r) => (float) $r->amount, $refunds)), 2);
+        $byHand = collect($refunds)->filter(fn ($r) => ! $r->stripe_refund_id)->sum('amount');
+
+        $msg = $name.' has been withdrawn from '.$event->name.'.';
+        if ($refunded > 0) {
+            $msg .= ' $'.number_format($refunded, 2).' refunded.';
+        }
+        if ($byHand > 0) {
+            $msg .= ' $'.number_format($byHand, 2).' of that was paid by cash or check and must be handed back in person.';
+        }
+
+        return redirect()->route('event.registrants', $event->slug)->with('success', $msg);
+    }
+
     public function registerForm(Request $request, $slug = null)
     {
         $event = Event::where('slug', '=', $slug)->firstOrFail();
@@ -640,7 +685,14 @@ class EventController extends Controller
         // Registered through an instructor, envelope not yet received: id => reference.
         $awaitingCash = \App\Models\CashRemittance::outstanding()->where('event_id', $event->id)->pluck('reference', 'id');
 
-        return view('event.registrants', compact('grouped_data', 'event', 'total_count', 'tshirt_breakdown', 'tshirt_total', 'awaitingCash'));
+        // The Refund button needs each registration's money lines for its
+        // confirm dialog. Only computed for people who can press it.
+        $canRefund = auth()->user()->can('event.issueRefunds');
+        $withdrawals = $canRefund
+            ? app(\App\Services\RegistrationWithdrawal::class)->summaries($regs->map(fn ($r) => $r->pivot))
+            : [];
+
+        return view('event.registrants', compact('grouped_data', 'event', 'total_count', 'tshirt_breakdown', 'tshirt_total', 'awaitingCash', 'canRefund', 'withdrawals'));
     }
 
     /**

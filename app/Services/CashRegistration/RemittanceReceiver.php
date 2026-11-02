@@ -122,6 +122,9 @@ class RemittanceReceiver
 
             foreach ($rows as $row) {
                 DB::table('event_registrations_deleted')->insert([
+                    'registration_id' => $row->id,
+                    'deleted_by_user_id' => $by->id,
+                    'reason' => 'void',
                     'created_at' => $row->created_at,
                     'updated_at' => now(),
                     'deleted_at' => now(),

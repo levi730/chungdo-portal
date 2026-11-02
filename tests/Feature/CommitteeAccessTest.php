@@ -137,7 +137,8 @@ it('gives the coordinator user administration but not the technical tier', funct
         ->and($coordinator->can('users.manage'))->toBeTrue()
         ->and($coordinator->can('event.manage'))->toBeTrue()
         ->and($coordinator->can('store.manage'))->toBeTrue()
-        ->and($coordinator->can('school.manage'))->toBeTrue();
+        ->and($coordinator->can('school.manage'))->toBeTrue()
+        ->and($coordinator->can('event.issueRefunds'))->toBeTrue();
 
     // The allowlist is the whole point: an ability nobody granted stays denied,
     // where super.admin would have passed it through the before() hook.

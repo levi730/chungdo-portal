@@ -131,6 +131,12 @@ class PermissionSeeder extends Seeder
             // running events, so granted to no role by default: give it to the
             // treasurer, directly or through a committee.
             'payments.receive',
+            // Refunding and withdrawing a registrant without a request from
+            // them — the Refund button on the registrants list. Money out on
+            // one person's say-so, so granted to no role: super.admin has it
+            // through the Gate::before bypass and the coordinator through
+            // config/portal.php; anyone else gets it from the admin user form.
+            'event.issueRefunds',
         ];
 
         // Spatie caches the permission list for the life of the request. A

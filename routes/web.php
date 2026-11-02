@@ -185,6 +185,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/event/{slug}/registrants/spreadsheet', [\App\Http\Controllers\EventController::class, 'downloadRegistrantSpreadsheet'])->name('event.reg-spreadsheet');
     Route::get('/event/{slug}/financials/spreadsheet', [\App\Http\Controllers\EventController::class, 'downloadFinancialsSpreadsheet'])->name('event.financials-spreadsheet');
     Route::get('/event/{slug}/registrants', [\App\Http\Controllers\EventController::class, 'viewRegistrants'])->name('event.registrants');
+    // Refund and withdraw a registrant without a request from them (event.issueRefunds, checked in the controller).
+    Route::post('/event/{slug}/registrants/{registration}/withdraw', [\App\Http\Controllers\EventController::class, 'withdrawRegistrant'])->name('event.registrant-withdraw');
     Route::get('/event/{slug}/addons', [\App\Http\Controllers\EventController::class, 'manageAddons'])->name('event.addons');
     Route::post('/event/{slug}/addons', [\App\Http\Controllers\EventController::class, 'saveAddons'])->name('event.addons-save');
     Route::get('/event/{slug}/refund-requests', [\App\Http\Controllers\EventController::class, 'refundRequests'])->name('event.refund-requests');
