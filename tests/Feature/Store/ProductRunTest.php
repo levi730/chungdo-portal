@@ -493,6 +493,61 @@ it('refuses to delete a run that has taken orders', function () {
     expect(ProductRun::find($run->id))->not->toBeNull();
 });
 
+it('deletes a run whose only orders are abandoned checkouts, and removes them', function () {
+    $product = runProduct();
+    $run = $product->runs()->create(['name' => 'Never happened']);
+    $variant = ProductVariant::create(['product_run_id' => $run->id, 'name' => 'A', 'price' => 20]);
+    $order = orderRunVariant($product, $run, $variant);
+    $order->update(['status' => ProductOrder::STATUS_FAILED]);
+
+    $this->actingAs(runManager())
+        ->delete(route('products.runs.destroy', [$product, $run]))
+        ->assertRedirect(route('products.edit', $product))
+        ->assertSessionHas('success', fn ($m) => str_contains($m, '1 abandoned checkout'));
+
+    expect(ProductRun::find($run->id))->toBeNull()
+        ->and(ProductVariant::find($variant->id))->toBeNull()
+        ->and(ProductOrder::find($order->id))->toBeNull()
+        ->and(ProductOrderItem::where('product_order_id', $order->id)->count())->toBe(0);
+});
+
+it('refuses to delete a run that took money', function () {
+    $product = runProduct();
+    $run = $product->runs()->create(['name' => 'Fall 2026']);
+    $variant = ProductVariant::create(['product_run_id' => $run->id, 'name' => 'A', 'price' => 20]);
+    $order = orderRunVariant($product, $run, $variant);
+    $order->update(['status' => ProductOrder::STATUS_PAID, 'amount_paid' => 20, 'paid_at' => now()]);
+
+    $this->actingAs(runManager())
+        ->delete(route('products.runs.destroy', [$product, $run]))
+        ->assertSessionHas('error');
+
+    expect(ProductRun::find($run->id))->not->toBeNull()
+        ->and(ProductOrder::find($order->id))->not->toBeNull();
+});
+
+it('will not delete a run whose abandoned checkout also spans another run', function () {
+    $product = runProduct();
+    $run = $product->runs()->create(['name' => 'First', 'closes_at' => now()->subDay()]);
+    $other = $product->runs()->create(['name' => 'Second']);
+    $variant = ProductVariant::create(['product_run_id' => $run->id, 'name' => 'A', 'price' => 20]);
+    $otherVariant = ProductVariant::create(['product_run_id' => $other->id, 'name' => 'B', 'price' => 20]);
+    $order = orderRunVariant($product, $run, $variant);
+    $order->update(['status' => ProductOrder::STATUS_FAILED]);
+    ProductOrderItem::create([
+        'product_order_id' => $order->id, 'product_id' => $product->id, 'product_run_id' => $other->id,
+        'product_variant_id' => $otherVariant->id, 'product_name' => $product->name, 'variant_name' => 'B',
+        'unit_price' => 20, 'quantity' => 1, 'amount' => 20,
+    ]);
+
+    $this->actingAs(runManager())
+        ->delete(route('products.runs.destroy', [$product, $run]))
+        ->assertSessionHas('error');
+
+    expect(ProductRun::find($run->id))->not->toBeNull()
+        ->and(ProductOrder::find($order->id))->not->toBeNull();
+});
+
 it('will not edit a run through another product', function () {
     $mine = runProduct();
     $theirs = runProduct();

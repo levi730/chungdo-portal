@@ -105,6 +105,50 @@ class ProductRun extends Model
         return $this->opens_at ?? $this->created_at ?? now();
     }
 
+    /** Every order with a line on this run. */
+    public function orders(): Builder
+    {
+        return ProductOrder::whereHas('items', fn ($q) => $q->where('product_run_id', $this->id));
+    }
+
+    /**
+     * Money moved on this run — paid, anything captured, a payment row or a
+     * refund. Such a run is a financial record and is never deleted.
+     */
+    public function hasTakenMoney(): bool
+    {
+        return $this->orders()
+            ->where(fn ($q) => $q
+                ->where('status', ProductOrder::STATUS_PAID)
+                ->orWhere('amount_paid', '>', 0)
+                ->orWhereHas('payment')
+                ->orWhereHas('refunds'))
+            ->exists();
+    }
+
+    /** A checkout that reached Stripe and has not been settled either way yet. */
+    public function hasPendingCheckout(): bool
+    {
+        return $this->orders()
+            ->where('status', ProductOrder::STATUS_PENDING)
+            ->where(fn ($q) => $q->whereNotNull('stripe_payment_intent_id')
+                ->orWhereNotNull('stripe_checkout_session_id'))
+            ->exists();
+    }
+
+    /**
+     * Abandoned checkouts: failed or cancelled, nothing captured. They are not
+     * financial records, only the reason a run can't otherwise be deleted.
+     */
+    public function deadOrders(): Builder
+    {
+        return $this->orders()
+            ->whereIn('status', [ProductOrder::STATUS_FAILED, ProductOrder::STATUS_CANCELLED])
+            ->where(fn ($q) => $q->whereNull('amount_paid')->orWhere('amount_paid', '<=', 0))
+            ->whereDoesntHave('payment')
+            ->whereDoesntHave('refunds');
+    }
+
     /**
      * Whether this run's window overlaps another's — only one may be open. A
      * missing closes_at is a genuinely open end; a missing opens_at is not

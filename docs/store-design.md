@@ -674,6 +674,11 @@ under the event refund flow, which is live money.
     the order. The detail page shows the lines with their run, the Stripe
     account and ids, the refund history, and a hand-over form
     (awaiting / ready / collected + an admin note the buyer never sees).
+  - **Deleting a run** (`ProductRunController::destroy`, revised 2026-11-03):
+    refused while the run has taken money (`ProductRun::hasTakenMoney()`) or has
+    a checkout still pending at Stripe; a run whose only orders are abandoned
+    checkouts (failed/cancelled, nothing captured) is deleted together with
+    them, unless one of those orders also has lines on another run.
   - **Pick list** (`/admin/gear/products/{product}/runs/{run}/pick-list`): one run,
     PAID orders only, fully refunded ones excluded. A whole-run variant tally
     (what to order from the printer), then one block per pickup school with

@@ -6,6 +6,7 @@ use App\Http\Requests\ProductRunRequest;
 use App\Models\Product;
 use App\Models\ProductRun;
 use App\Services\Store\ProductVariantSync;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Print runs of a product, and the variants on sale during each — see
@@ -68,15 +69,40 @@ class ProductRunController extends Controller
         abort_unless($run->product_id === $product->id, 404);
 
         // A run that took money is a financial record; its variants are what the
-        // pick list and the refund screen read.
-        if ($run->hasOrders()) {
-            return back()->with('error', 'This run has taken orders, so it can\'t be deleted.');
+        // pick list and the refund screen read. A checkout still pending at
+        // Stripe could yet become one. Abandoned checkouts (failed/cancelled,
+        // nothing captured) are neither — a run whose only orders are those
+        // goes, and takes them with it.
+        if ($run->hasTakenMoney()) {
+            return back()->with('error', 'This run has taken money, so it can\'t be deleted.');
+        }
+        if ($run->hasPendingCheckout()) {
+            return back()->with('error', 'A checkout on this run is still pending at Stripe. The reconcile sweep settles those within about an hour — try again after.');
         }
 
-        $run->variants()->delete();
-        $run->delete();
+        $dead = $run->deadOrders()->with('items')->get();
 
-        return redirect()->route('products.edit', $product)->with('success', 'Run deleted.');
+        foreach ($dead as $order) {
+            if ($order->items->contains(fn ($i) => $i->product_run_id !== $run->id)) {
+                return back()->with('error', 'Abandoned order '.$order->shortReference().' also has lines on another run, so this run can\'t be deleted on its own.');
+            }
+        }
+
+        DB::transaction(function () use ($run, $dead) {
+            foreach ($dead as $order) {
+                $order->items()->delete();
+                $order->delete();
+            }
+            $run->variants()->delete();
+            $run->delete();
+        });
+
+        $message = 'Run deleted.';
+        if ($dead->isNotEmpty()) {
+            $message .= ' Removed '.$dead->count().' abandoned '.str('checkout')->plural($dead->count()).' that never took money.';
+        }
+
+        return redirect()->route('products.edit', $product)->with('success', $message);
     }
 
     /* ------------------------------------------------------------------ *
