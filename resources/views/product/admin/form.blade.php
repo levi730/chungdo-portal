@@ -61,7 +61,7 @@
                     <div class="mb-3">
                         <label class="form-label">URL slug</label>
                         <input type="text" name="slug" class="form-control" value="{{ old('slug', $product->slug) }}" placeholder="auto-generated from name">
-                        <small class="form-hint">The public address: /store/&lt;slug&gt;</small>
+                        <small class="form-hint">The public address: {{ route('store.index') }}/&lt;slug&gt;</small>
                     </div>
 
                     <div class="mb-3">

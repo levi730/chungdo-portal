@@ -119,8 +119,8 @@
                                 </a>
                             </li>
                         @endcan
-                        {{-- Hidden while STORE_MENU=false. The menu only — /store
-                             stays reachable by URL, and /admin/products still
+                        {{-- Hidden while STORE_MENU=false. The menu only — /gear
+                             stays reachable by URL, and /admin/gear/products still
                              works for store.manage holders. --}}
                         @if(config('store.menu'))
                         @can('store.manage')

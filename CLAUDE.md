@@ -73,7 +73,7 @@ sold at. Only one run of a design may be open at a time. `product_order_items`
 carries `product_run_id` on the **line**, because a cart can span two products
 whose open runs have different arrival dates.
 
-Step 3a (public storefront + cart) is done: `/store`, `/store/{slug}`,
+Step 3a (public storefront + cart) is done: `/gear`, `/gear/{slug}`,
 `StoreController`, `App\Services\Store\Cart`, `tests/Feature/Store/StorefrontTest`.
 **Checkout is not built** — that is the next piece, and it needs the sales-tax
 answer first.
@@ -105,9 +105,10 @@ webhook three ways changed nothing.
 
 Deployed and live. `STORE_MENU=false` currently hides the Store nav item while
 it is being set up — the menu only; `/store` is still reachable by URL and
-`/admin/products` still works. The store is called **"Chung Do Gear"** wherever
-a person sees it (`store.name`, `STORE_NAME`); routes, permissions and code
-still say `store`.
+`/admin/gear/products` still works. The store is called **"Chung Do Gear"**
+wherever a person sees it (`store.name`, `STORE_NAME`) and lives at `/gear`
+and `/admin/gear/…` (since 2026-11-03; `/store` and `/store/{slug}` redirect
+permanently). Route *names*, permissions and code still say `store`.
 
 Decided: charges go to the **association** account, and **tax stays at 0**
 (2026-09-01). `product_orders.tax` exists and `total = subtotal + tax`, so
@@ -115,7 +116,7 @@ turning it on is a config change rather than a migration over rows holding
 money. That decision has **not** been checked with whoever handles the
 association's filings — it means "not yet", not "not owed".
 
-**Steps 7–8 are done (2026-11-02):** the orders admin (`/admin/orders`,
+**Steps 7–8 are done (2026-11-02):** the orders admin (`/admin/gear/orders`,
 `ProductOrderAdminController`, `App\Livewire\Admin\ProductOrdersTable`), the
 per-run pick list (`App\Services\Store\PickList`, paid orders only, grouped by
 pickup school, Collected checkbox, print CSS), the store financials export

@@ -14,7 +14,7 @@
 
 <div class="d-flex flex-wrap gap-3 mt-2"
      x-data="focusPicker({
-        mediaBase: @js(url('/admin/products/'.$product->id.'/media')),
+        mediaBase: @js(Str::beforeLast(route('products.media.focus', [$product, 0]), '/0/focus')),
         csrf: @js(csrf_token()),
         images: @js($productImages),
         {{-- Only the crops that actually happen. The product page's main image

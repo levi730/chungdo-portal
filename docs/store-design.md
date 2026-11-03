@@ -105,7 +105,7 @@ The **design**, and nothing time-bound.
 ```
 id, timestamps, deleted_at
 name                 string
-slug                 string unique          # /store/{slug}
+slug                 string unique          # /gear/{slug}
 stripe_account       string(50) default 'association'
 status               string default 'draft' # draft | active | archived
 description          text nullable          # markdown, via MarkdownProcessorService
@@ -551,7 +551,7 @@ under the event refund flow, which is live money.
   `ProductRunRequest` (with the one-open-run-at-a-time rule),
   `ProductVariantSync::copy`, and `tests/Feature/Store/ProductRunTest`.
 
-  Runs get their own pages (`/admin/products/{product}/runs/{run}/edit`) rather
+  Runs get their own pages (`/admin/gear/products/{product}/runs/{run}/edit`) rather
   than nesting inside the product form — a run owns a whole price list, and
   several of those on one screen would be unreadable. The product form lists the
   runs with their state (Open / Scheduled / Closed) and links out.
@@ -563,7 +563,7 @@ under the event refund flow, which is live money.
   live event data.
 
 - **Step 3a done (2026-08-31): the public storefront and cart.** `/store`,
-  `/store/{slug}`, and a session cart — `StoreController`,
+  `/gear/{slug}`, and a session cart — `StoreController`,
   `App\Services\Store\{Cart,CartLine}`, `resources/views/store/`, and
   `tests/Feature/Store/StorefrontTest` (20 tests). **Checkout is not built yet.**
 
@@ -665,12 +665,12 @@ under the event refund flow, which is live money.
   `store.issueRefunds` permission, and `tests/Feature/Store/{OrdersAdminTest,
   ProductOrderRefundTest}`. Full suite green at 505.
 
-  - **Orders** (`/admin/orders`): a Livewire table filtered by product, pickup
+  - **Orders** (`/admin/gear/orders`): a Livewire table filtered by product, pickup
     school, payment status (defaults to Paid) and hand-over status; a row opens
     the order. The detail page shows the lines with their run, the Stripe
     account and ids, the refund history, and a hand-over form
     (awaiting / ready / collected + an admin note the buyer never sees).
-  - **Pick list** (`/admin/products/{product}/runs/{run}/pick-list`): one run,
+  - **Pick list** (`/admin/gear/products/{product}/runs/{run}/pick-list`): one run,
     PAID orders only, fully refunded ones excluded. A whole-run variant tally
     (what to order from the printer), then one block per pickup school with
     that school's tally and its orders, each with a Collected checkbox that
@@ -678,7 +678,7 @@ under the event refund flow, which is live money.
     an empty box to tick by hand. An order spanning two runs shows only this
     run's lines plus "+ N items from another run". "Mark all ready for pickup"
     flips every awaiting order on the run when the shipment arrives.
-  - **Financials export** (`/admin/orders/financials?run=|product=`): the same
+  - **Financials export** (`/admin/gear/orders/financials?run=|product=`): the same
     shape as the event ledger — one row per paid order with dollars by product,
     one negative row per refund — plus a Stripe account column on every row
     and a net per account, because products may name different accounts. A

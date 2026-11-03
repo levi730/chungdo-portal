@@ -46,20 +46,25 @@ Route::get('/schools', [\App\Http\Controllers\SchoolController::class, 'publicDi
 // them the only member-facing pages in the portal a signed-out visitor can
 // reach. Browsing and the cart are public; who may check out is decided at
 // checkout, not here. Nothing below touches money.
-Route::get('/store', [\App\Http\Controllers\StoreController::class, 'index'])->name('store.index');
-Route::get('/store/cart', [\App\Http\Controllers\StoreController::class, 'cart'])->name('store.cart');
-Route::post('/store/cart', [\App\Http\Controllers\StoreController::class, 'addToCart'])->name('store.cart.add');
-Route::patch('/store/cart', [\App\Http\Controllers\StoreController::class, 'updateCart'])->name('store.cart.update');
-Route::delete('/store/cart/{variant}', [\App\Http\Controllers\StoreController::class, 'removeFromCart'])->name('store.cart.remove');
+Route::get('/gear', [\App\Http\Controllers\StoreController::class, 'index'])->name('store.index');
+Route::get('/gear/cart', [\App\Http\Controllers\StoreController::class, 'cart'])->name('store.cart');
+Route::post('/gear/cart', [\App\Http\Controllers\StoreController::class, 'addToCart'])->name('store.cart.add');
+Route::patch('/gear/cart', [\App\Http\Controllers\StoreController::class, 'updateCart'])->name('store.cart.update');
+Route::delete('/gear/cart/{variant}', [\App\Http\Controllers\StoreController::class, 'removeFromCart'])->name('store.cart.remove');
 // Checkout. Also public: members pay on-page with Elements, guests are sent to
 // Stripe Hosted Checkout. Both write the order row here first.
-Route::get('/store/checkout', [\App\Http\Controllers\StoreCheckoutController::class, 'show'])->name('store.checkout');
-Route::post('/store/checkout', [\App\Http\Controllers\StoreCheckoutController::class, 'store'])->name('store.checkout.store');
-Route::post('/store/checkout/finalize', [\App\Http\Controllers\StoreCheckoutController::class, 'finalize'])->name('store.checkout.finalize');
-Route::get('/store/complete/{reference}', [\App\Http\Controllers\StoreCheckoutController::class, 'complete'])->name('store.complete');
+Route::get('/gear/checkout', [\App\Http\Controllers\StoreCheckoutController::class, 'show'])->name('store.checkout');
+Route::post('/gear/checkout', [\App\Http\Controllers\StoreCheckoutController::class, 'store'])->name('store.checkout.store');
+Route::post('/gear/checkout/finalize', [\App\Http\Controllers\StoreCheckoutController::class, 'finalize'])->name('store.checkout.finalize');
+Route::get('/gear/complete/{reference}', [\App\Http\Controllers\StoreCheckoutController::class, 'complete'])->name('store.complete');
 
-// Last, so /store/cart and /store/checkout aren't swallowed by the slug.
-Route::get('/store/{slug}', [\App\Http\Controllers\StoreController::class, 'show'])->name('store.show');
+// Last, so /gear/cart and /gear/checkout aren't swallowed by the slug.
+Route::get('/gear/{slug}', [\App\Http\Controllers\StoreController::class, 'show'])->name('store.show');
+
+// The store lived at /store until 2026-11-03 and links had already gone out.
+Route::permanentRedirect('/store', '/gear');
+Route::get('/store/{slug}', fn (string $slug) => redirect()->route('store.show', $slug, 301))
+    ->where('slug', '[A-Za-z0-9-]+');
 
 // Project United (donations / t-shirts / hoodies) was retired in 2026. The
 // purchase routes are gone; the admin reports below remain because the
@@ -143,33 +148,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/events/{event}/media/{media}/focus', [\App\Http\Controllers\EventAdminController::class, 'setMediaFocus'])->name('events.media.focus');
 
     // Store admin CRUD (permission enforced in the controller, as with events)
-    Route::get('/admin/products', [\App\Http\Controllers\ProductAdminController::class, 'index'])->name('products.index');
-    Route::get('/admin/products/create', [\App\Http\Controllers\ProductAdminController::class, 'create'])->name('products.create');
-    Route::post('/admin/products', [\App\Http\Controllers\ProductAdminController::class, 'store'])->name('products.store');
-    Route::get('/admin/products/{product}/edit', [\App\Http\Controllers\ProductAdminController::class, 'edit'])->name('products.edit');
-    Route::put('/admin/products/{product}', [\App\Http\Controllers\ProductAdminController::class, 'update'])->name('products.update');
-    Route::delete('/admin/products/{product}', [\App\Http\Controllers\ProductAdminController::class, 'destroy'])->name('products.destroy');
-    Route::post('/admin/products/{id}/restore', [\App\Http\Controllers\ProductAdminController::class, 'restore'])->name('products.restore');
-    Route::delete('/admin/products/{product}/media/{media}', [\App\Http\Controllers\ProductAdminController::class, 'deleteMedia'])->name('products.media.delete');
-    Route::post('/admin/products/{product}/media/{media}/focus', [\App\Http\Controllers\ProductAdminController::class, 'setMediaFocus'])->name('products.media.focus');
+    Route::get('/admin/gear/products', [\App\Http\Controllers\ProductAdminController::class, 'index'])->name('products.index');
+    Route::get('/admin/gear/products/create', [\App\Http\Controllers\ProductAdminController::class, 'create'])->name('products.create');
+    Route::post('/admin/gear/products', [\App\Http\Controllers\ProductAdminController::class, 'store'])->name('products.store');
+    Route::get('/admin/gear/products/{product}/edit', [\App\Http\Controllers\ProductAdminController::class, 'edit'])->name('products.edit');
+    Route::put('/admin/gear/products/{product}', [\App\Http\Controllers\ProductAdminController::class, 'update'])->name('products.update');
+    Route::delete('/admin/gear/products/{product}', [\App\Http\Controllers\ProductAdminController::class, 'destroy'])->name('products.destroy');
+    Route::post('/admin/gear/products/{id}/restore', [\App\Http\Controllers\ProductAdminController::class, 'restore'])->name('products.restore');
+    Route::delete('/admin/gear/products/{product}/media/{media}', [\App\Http\Controllers\ProductAdminController::class, 'deleteMedia'])->name('products.media.delete');
+    Route::post('/admin/gear/products/{product}/media/{media}/focus', [\App\Http\Controllers\ProductAdminController::class, 'setMediaFocus'])->name('products.media.focus');
 
     // Print runs, and the variants on sale during each
-    Route::get('/admin/products/{product}/runs/create', [\App\Http\Controllers\ProductRunController::class, 'create'])->name('products.runs.create');
-    Route::post('/admin/products/{product}/runs', [\App\Http\Controllers\ProductRunController::class, 'store'])->name('products.runs.store');
-    Route::get('/admin/products/{product}/runs/{run}/edit', [\App\Http\Controllers\ProductRunController::class, 'edit'])->name('products.runs.edit');
-    Route::put('/admin/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'update'])->name('products.runs.update');
-    Route::delete('/admin/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'destroy'])->name('products.runs.destroy');
-    Route::get('/admin/products/{product}/runs/{run}/pick-list', [\App\Http\Controllers\ProductOrderAdminController::class, 'pickList'])->name('products.runs.pick-list');
-    Route::post('/admin/products/{product}/runs/{run}/ready', [\App\Http\Controllers\ProductOrderAdminController::class, 'markReady'])->name('products.runs.mark-ready');
+    Route::get('/admin/gear/products/{product}/runs/create', [\App\Http\Controllers\ProductRunController::class, 'create'])->name('products.runs.create');
+    Route::post('/admin/gear/products/{product}/runs', [\App\Http\Controllers\ProductRunController::class, 'store'])->name('products.runs.store');
+    Route::get('/admin/gear/products/{product}/runs/{run}/edit', [\App\Http\Controllers\ProductRunController::class, 'edit'])->name('products.runs.edit');
+    Route::put('/admin/gear/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'update'])->name('products.runs.update');
+    Route::delete('/admin/gear/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'destroy'])->name('products.runs.destroy');
+    Route::get('/admin/gear/products/{product}/runs/{run}/pick-list', [\App\Http\Controllers\ProductOrderAdminController::class, 'pickList'])->name('products.runs.pick-list');
+    Route::post('/admin/gear/products/{product}/runs/{run}/ready', [\App\Http\Controllers\ProductOrderAdminController::class, 'markReady'])->name('products.runs.mark-ready');
 
     // Store orders after the money moved: list, detail, hand-over, export,
     // refunds. store.manage throughout except refund (store.issueRefunds).
-    Route::get('/admin/orders', [\App\Http\Controllers\ProductOrderAdminController::class, 'index'])->name('orders.index');
-    Route::get('/admin/orders/financials', [\App\Http\Controllers\ProductOrderAdminController::class, 'financials'])->name('orders.financials');
-    Route::get('/admin/orders/{order}', [\App\Http\Controllers\ProductOrderAdminController::class, 'show'])->name('orders.show');
-    Route::put('/admin/orders/{order}', [\App\Http\Controllers\ProductOrderAdminController::class, 'update'])->name('orders.update');
-    Route::post('/admin/orders/{order}/collected', [\App\Http\Controllers\ProductOrderAdminController::class, 'collected'])->name('orders.collected');
-    Route::post('/admin/orders/{order}/refund', [\App\Http\Controllers\ProductOrderAdminController::class, 'refund'])->name('orders.refund');
+    Route::get('/admin/gear/orders', [\App\Http\Controllers\ProductOrderAdminController::class, 'index'])->name('orders.index');
+    Route::get('/admin/gear/orders/financials', [\App\Http\Controllers\ProductOrderAdminController::class, 'financials'])->name('orders.financials');
+    Route::get('/admin/gear/orders/{order}', [\App\Http\Controllers\ProductOrderAdminController::class, 'show'])->name('orders.show');
+    Route::put('/admin/gear/orders/{order}', [\App\Http\Controllers\ProductOrderAdminController::class, 'update'])->name('orders.update');
+    Route::post('/admin/gear/orders/{order}/collected', [\App\Http\Controllers\ProductOrderAdminController::class, 'collected'])->name('orders.collected');
+    Route::post('/admin/gear/orders/{order}/refund', [\App\Http\Controllers\ProductOrderAdminController::class, 'refund'])->name('orders.refund');
 
     Route::get('/event/latest', [\App\Http\Controllers\EventController::class, 'latest'])->name('event.latest');
     Route::middleware('can:event.reorganizeDivisions')->group(function () {

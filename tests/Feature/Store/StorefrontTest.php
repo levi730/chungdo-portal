@@ -52,6 +52,19 @@ function cart(): Cart
  * Public access
  * -------------------------------------------------------------------- */
 
+it('lives at /gear and redirects the old /store links', function () {
+    $product = shopProduct();
+
+    expect(route('store.index', [], false))->toBe('/gear')
+        ->and(route('store.show', $product->slug, false))->toBe('/gear/'.$product->slug)
+        ->and(route('products.index', [], false))->toBe('/admin/gear/products')
+        ->and(route('orders.index', [], false))->toBe('/admin/gear/orders');
+
+    $this->get('/store')->assertRedirect(route('store.index'));
+    $this->get('/store/'.$product->slug)->assertRedirect(route('store.show', $product->slug));
+    $this->get('/gear/'.$product->slug)->assertOk();
+});
+
 it('calls the store by its configured name', function () {
     config(['store.name' => 'Chung Do Gear']);
 
