@@ -43,6 +43,12 @@ Livewire tables for admin lists, some Inertia/Vue (the registration form).
 - Neither existing payment flow has a reconcile sweep. Any new flow ships one.
 - The Zulip sync treats the portal as canonical and **removes** as well as adds.
   Dry-run first.
+- **Production (kronos, `/www/chungdo.org/www`) runs with a cached route
+  table.** A deploy that adds a route needs `php artisan route:cache` (or
+  `optimize:clear` then `optimize`) after `git pull`, or every page that calls
+  `route()` on the new name 500s with "Route [...] not defined" while the rest
+  of the site looks fine. This bit the 2026-11-02 store deploy: the product
+  edit page links to the new pick-list route.
 
 ## Store — work in progress
 
