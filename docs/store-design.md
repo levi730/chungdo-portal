@@ -273,10 +273,14 @@ interface ChargedToStripeAccount { public function stripeAccountSlug(): ?string;
 Two rules carry over from events, and one is new:
 
 - **Never** call `config('services.stripe.secret')` for store money.
-- **Lock the account once money has moved** for a product — refunds must be
-  issued on the account that took the charge. Enforce it in the same three
-  places events do: disable the select, reject in the form request, and refuse
-  the overwrite in the controller's `fill()`.
+- **Lock the account while an open run has taken money** for a product
+  (`Product::stripeAccountLocked()`, revised 2026-11-03). Orders snapshot their
+  account and every later step reads the snapshot, so — unlike events — a
+  change never strands a refund; what it would do is split one printing's money
+  across two organisations. The lock therefore lifts when the paid run closes,
+  and the next run of the design may be sold by a different account. Enforce it
+  in the same three places events do: disable the select, reject in the form
+  request, and refuse the overwrite in the controller's `fill()`.
 - **New: one cart, one account.** A charge lands in exactly one account, so a
   cart may not mix products whose `stripe_account` differs. Validate on add-to-
   cart and refuse with a plain message ("This item is sold by a different

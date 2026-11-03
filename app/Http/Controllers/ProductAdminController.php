@@ -124,9 +124,9 @@ class ProductAdminController extends Controller
 
         $product->option_names = $request->optionNames();
 
-        // The Stripe account is locked once money has moved (see ProductRequest),
-        // and the select is disabled in that case so nothing is posted.
-        if (! $product->exists || ! $product->hasPayments()) {
+        // The Stripe account is locked while an open run has taken money (see
+        // ProductRequest); the select is disabled in that case so nothing is posted.
+        if (! $product->exists || ! $product->stripeAccountLocked()) {
             $product->stripe_account = app(StripeAccounts::class)
                 ->resolve($request->input('stripe_account'));
         }

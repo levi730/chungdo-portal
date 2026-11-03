@@ -53,16 +53,17 @@ class ProductRequest extends FormRequest
     }
 
     /**
-     * The Stripe account is locked once a charge has been attempted for this
-     * product — a refund has to go back through the account that took it. The
-     * select is disabled in the form; this is the server-side half of that rule.
+     * The Stripe account is locked while a run that is open now has taken a
+     * charge (Product::stripeAccountLocked) — one printing's money stays in one
+     * organisation. The select is disabled in the form; this is the server-side
+     * half of that rule.
      */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
             $product = $this->route('product');
 
-            if (! $product || ! $this->has('stripe_account') || ! $product->hasPayments()) {
+            if (! $product || ! $this->has('stripe_account') || ! $product->stripeAccountLocked()) {
                 return;
             }
 
@@ -73,7 +74,7 @@ class ProductRequest extends FormRequest
             if ($accounts->resolve($this->input('stripe_account')) !== $accounts->resolve($product->stripe_account)) {
                 $validator->errors()->add(
                     'stripe_account',
-                    'This product has already taken payments, so its Stripe account cannot be changed.'
+                    'The current run has already taken payments, so the Stripe account cannot change until it closes.'
                 );
             }
         });

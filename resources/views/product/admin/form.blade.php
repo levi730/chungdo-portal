@@ -70,7 +70,7 @@
                         <small class="form-hint">Markdown.</small>
                     </div>
 
-                    @php($stripeLocked = ! $creating && $product->hasPayments())
+                    @php($stripeLocked = ! $creating && $product->stripeAccountLocked())
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Payments go to</label>
@@ -84,13 +84,15 @@
                                      the server-side check has something to compare. --}}
                                 <input type="hidden" name="stripe_account" value="{{ $product->stripe_account }}">
                                 <small class="form-hint text-warning">
-                                    Locked — this product has taken payments. Refunds have to be issued on the
-                                    account that took the charge, so it can't be moved.
+                                    Locked while the current run is taking payments, so one printing's money
+                                    stays in one organisation. Once this run closes, the next run can be sold
+                                    by a different account. Orders already placed keep the account that took
+                                    them, and refunds go back through it.
                                 </small>
                             @else
                                 <small class="form-hint">
-                                    Which Stripe account this product's money lands in. Can't be changed once
-                                    the first order is taken.
+                                    Which Stripe account new orders land in. Orders already placed keep the
+                                    account that took them. Locks while an open run has taken payments.
                                 </small>
                             @endif
                         </div>

@@ -29,8 +29,11 @@ Livewire tables for admin lists, some Inertia/Vue (the registration form).
   association's is `sk_test_…`. Charging `main_school` from a dev machine moves
   real money. Test against `association` only, and check the prefix before
   running anything that charges.
-- The account is **locked once money has moved** for an event or product —
-  refunds must be issued on the account that took the charge.
+- The account is **locked once money has moved** for an event — refunds are
+  issued on the account that took the charge. A **product** locks only while a
+  run that is open now has taken a charge (`Product::stripeAccountLocked()`):
+  orders snapshot their account, so an old run's money is never stranded, and
+  the next run may be sold by a different account.
 - Stripe customer ids do not cross accounts. Cashier's `users.stripe_id` is only
   valid on the association's account; use `StripeCustomerResolver`.
 - The publishable key is passed from the server per account, never baked in from

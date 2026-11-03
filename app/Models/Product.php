@@ -229,4 +229,26 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
                 ->orWhereNotNull('stripe_checkout_session_id'))
             ->exists();
     }
+
+    /**
+     * Whether the Stripe account may still be changed.
+     *
+     * Not the same question as hasPayments(). Every order snapshots its account
+     * (`product_orders.stripe_account`) and everything after the charge —
+     * fulfilment, the reconcile sweep, refunds, the financials export — reads
+     * the snapshot, so repointing the product never strands money already
+     * taken. What a change CAN do is split one printing's money across two
+     * organisations, so the lock holds only while a run that is open right now
+     * has had a charge attempted, and lifts when that run closes: the next run
+     * of the design may be sold by a different account.
+     */
+    public function stripeAccountLocked(): bool
+    {
+        return ProductOrder::whereHas('items', fn ($q) => $q
+                ->where('product_id', $this->id)
+                ->whereHas('run', fn ($r) => $r->open()))
+            ->where(fn ($q) => $q->whereNotNull('stripe_payment_intent_id')
+                ->orWhereNotNull('stripe_checkout_session_id'))
+            ->exists();
+    }
 }

@@ -211,6 +211,29 @@ it('rejects a Stripe account change once a charge has been attempted', function 
     expect($product->fresh()->stripe_account)->toBe('association');
 });
 
+it('lets the account change for the next run once the paid run has closed', function () {
+    $product = adminProduct(['stripe_account' => 'association']);
+    $order = chargeAgainst($product);
+    expect($product->stripeAccountLocked())->toBeTrue();
+
+    $product->runs()->first()->update(['closes_at' => now()->subDay()]);
+    expect($product->fresh()->stripeAccountLocked())->toBeFalse()
+        ->and($product->fresh()->hasPayments())->toBeTrue();
+
+    $this->actingAs(storeManager())
+        ->put(route('products.update', $product), productPayload([
+            'name' => $product->name,
+            'slug' => $product->slug,
+            'stripe_account' => 'main_school',
+        ]))
+        ->assertSessionHasNoErrors();
+
+    // New orders go to the new account; the old order keeps its snapshot,
+    // which is what its refund will be issued on.
+    expect($product->fresh()->stripe_account)->toBe('main_school')
+        ->and($order->fresh()->stripe_account)->toBe('association');
+});
+
 it('still saves the rest of the product while the account is locked', function () {
     // The locked form re-posts the current account in a hidden field, so an
     // unchanged value must not trip the error.
