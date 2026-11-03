@@ -64,6 +64,9 @@ class ProductRunRequest extends FormRequest
                 'opens_at' => $this->input('opens_at') ?: null,
                 'closes_at' => $this->input('closes_at') ?: null,
             ]);
+            // An undated run opens when it is created: keep the real start
+            // when editing one, so the window is not judged as starting today.
+            $candidate->created_at = $current?->created_at;
 
             $clash = $product->runs()
                 ->when($current, fn ($q) => $q->whereKeyNot($current->id))

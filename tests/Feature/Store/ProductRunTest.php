@@ -246,6 +246,48 @@ it('accepts a run that starts after the previous one closes', function () {
     expect($product->runs()->count())->toBe(2);
 });
 
+it('accepts an undated run once the previous one has closed', function () {
+    $product = runProduct();
+    $product->runs()->create([
+        'name' => '2026 Run',
+        'opens_at' => now()->subMonths(2),
+        'closes_at' => now()->subDays(4),
+    ]);
+
+    $this->actingAs(runManager())
+        ->post(route('products.runs.store', $product), runPayload(['name' => 'Reprint']))
+        ->assertSessionHasNoErrors();
+
+    expect($product->runs()->count())->toBe(2)
+        ->and($product->runs()->open()->first()->name)->toBe('Reprint');
+});
+
+it('still rejects an undated run while another is open', function () {
+    $product = runProduct();
+    $product->runs()->create(['name' => 'Open-ended']);
+
+    $this->actingAs(runManager())
+        ->post(route('products.runs.store', $product), runPayload(['name' => 'Second']))
+        ->assertSessionHasErrors('opens_at');
+
+    expect($product->runs()->count())->toBe(1);
+});
+
+it('judges an edited undated run from when it was created', function () {
+    $product = runProduct();
+    $old = $product->runs()->create(['name' => 'Old', 'closes_at' => now()->subDays(4)]);
+    $old->forceFill(['created_at' => now()->subMonths(2)])->save();
+    $product->runs()->create(['name' => 'Current']);
+
+    // Renaming the closed run must not read as a new window opening today.
+    $this->actingAs(runManager())
+        ->put(route('products.runs.update', [$product, $old]), runPayload([
+            'name' => 'Old (renamed)',
+            'closes_at' => now()->subDays(4)->format('Y-m-d\TH:i'),
+        ]))
+        ->assertSessionHasNoErrors();
+});
+
 it('lets different designs run at the same time', function () {
     // The one-open-run rule is per DESIGN, not store-wide. A shirt design and a
     // bag design must be able to take orders in the same weeks.

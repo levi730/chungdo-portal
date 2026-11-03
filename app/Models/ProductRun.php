@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * One print run of a product — see docs/store-design.md.
@@ -94,16 +95,28 @@ class ProductRun extends Model
             ->exists();
     }
 
-    /** Whether this run's dates overlap another's — only one may be open. */
+    /**
+     * When orders could first be placed. No opens_at means "open as soon as it
+     * exists" (see scopeOpen), so the window starts when the run was created —
+     * not at the beginning of time. An unsaved run starts now.
+     */
+    public function effectiveOpensAt(): Carbon
+    {
+        return $this->opens_at ?? $this->created_at ?? now();
+    }
+
+    /**
+     * Whether this run's window overlaps another's — only one may be open. A
+     * missing closes_at is a genuinely open end; a missing opens_at is not
+     * (effectiveOpensAt), or a new undated run could never follow a closed one.
+     */
     public function overlaps(self $other): bool
     {
-        $startsBeforeOtherEnds = $this->opens_at === null
-            || $other->closes_at === null
-            || $this->opens_at < $other->closes_at;
+        $startsBeforeOtherEnds = $other->closes_at === null
+            || $this->effectiveOpensAt() < $other->closes_at;
 
         $endsAfterOtherStarts = $this->closes_at === null
-            || $other->opens_at === null
-            || $this->closes_at > $other->opens_at;
+            || $this->closes_at > $other->effectiveOpensAt();
 
         return $startsBeforeOtherEnds && $endsAfterOtherStarts;
     }
