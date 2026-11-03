@@ -105,7 +105,9 @@ webhook three ways changed nothing.
 
 Deployed and live. `STORE_MENU=false` currently hides the Store nav item while
 it is being set up — the menu only; `/store` is still reachable by URL and
-`/admin/products` still works.
+`/admin/products` still works. The store is called **"Chung Do Gear"** wherever
+a person sees it (`store.name`, `STORE_NAME`); routes, permissions and code
+still say `store`.
 
 Decided: charges go to the **association** account, and **tax stays at 0**
 (2026-09-01). `product_orders.tax` exists and `total = subtotal + tax`, so

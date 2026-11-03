@@ -41,7 +41,7 @@
                             <div class="col">
                                 <div class="h1 mb-0">{{ $my_orders->count() }}</div>
                                 <div class="text-secondary small">
-                                    store {{ Str::plural('order', $my_orders->count()) }}
+                                    {{ config('store.name') }} {{ Str::plural('order', $my_orders->count()) }}
                                 </div>
                             </div>
                         @endif

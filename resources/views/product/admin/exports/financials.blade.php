@@ -1,7 +1,7 @@
 <table>
     <thead>
     <tr>
-        <th colspan="3"><b>Store financials: {{ $scope }}</b></th>
+        <th colspan="3"><b>{{ config('store.name') }} financials: {{ $scope }}</b></th>
     </tr>
     <tr>
         <th><b>Date</b></th>

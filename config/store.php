@@ -4,6 +4,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Store name
+    |--------------------------------------------------------------------------
+    |
+    | What the store is called everywhere a member or an admin sees it: the nav
+    | item, the public page title, the dashboard count, the admin headings and
+    | the financials export. Routes, permissions and code keep saying "store".
+    |
+    */
+
+    'name' => env('STORE_NAME', 'Chung Do Gear'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Store menu
     |--------------------------------------------------------------------------
     |

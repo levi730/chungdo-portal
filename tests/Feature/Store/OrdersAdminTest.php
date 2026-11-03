@@ -126,7 +126,7 @@ it('shows a manager the orders list and one order', function () {
     $school = oaSchool('Eastside Dojang');
     $order = oaOrder([[$run->variants->first(), 2]], ['pickup_school_id' => $school->id]);
 
-    $this->actingAs(oaManager())->get(route('orders.index'))->assertOk()->assertSee('Store orders');
+    $this->actingAs(oaManager())->get(route('orders.index'))->assertOk()->assertSee(config('store.name').' orders');
 
     $this->actingAs(oaManager())
         ->get(route('orders.show', $order))

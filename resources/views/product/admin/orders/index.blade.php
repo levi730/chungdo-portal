@@ -1,20 +1,20 @@
 @extends('layouts.dashboard')
 
 @section('page-title')
-    Store Orders
+    {{ config('store.name') }} orders
 @endsection
 
 @section('content')
 <div class="container-xl">
     <div class="content">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h2 class="mb-0">Store orders</h2>
+            <h2 class="mb-0">{{ config('store.name') }} orders</h2>
             <div class="d-flex gap-2">
                 <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">Manage products</a>
                 <div class="dropdown">
                     <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">Export financials</button>
                     <div class="dropdown-menu dropdown-menu-end">
-                        <a class="dropdown-item" href="{{ route('orders.financials') }}">All store orders</a>
+                        <a class="dropdown-item" href="{{ route('orders.financials') }}">All {{ config('store.name') }} orders</a>
                         @foreach($products as $product)
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item" href="{{ route('orders.financials', ['product' => $product->id]) }}">{{ $product->name }} — all runs</a>

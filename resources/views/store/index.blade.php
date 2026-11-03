@@ -1,14 +1,14 @@
 @extends('layouts.dashboard')
 
 @section('page-title')
-    Store
+    {{ config('store.name') }}
 @endsection
 
 @section('content')
 <div class="container-xl">
     <div class="content">
         {{-- The heading comes from @section('page-title'); repeating it here
-             would print "Store" twice. --}}
+             would print the name twice. --}}
         <div class="d-flex justify-content-end mb-3">
             @include('store.partials.cart-button')
         </div>

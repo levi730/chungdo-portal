@@ -52,6 +52,12 @@ function cart(): Cart
  * Public access
  * -------------------------------------------------------------------- */
 
+it('calls the store by its configured name', function () {
+    config(['store.name' => 'Chung Do Gear']);
+
+    $this->get(route('store.index'))->assertOk()->assertSee('Chung Do Gear');
+});
+
 it('lets a signed-out visitor browse the store', function () {
     $product = shopProduct();
     shopVariant($product);
