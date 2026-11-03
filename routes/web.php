@@ -159,6 +159,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/products/{product}/runs/{run}/edit', [\App\Http\Controllers\ProductRunController::class, 'edit'])->name('products.runs.edit');
     Route::put('/admin/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'update'])->name('products.runs.update');
     Route::delete('/admin/products/{product}/runs/{run}', [\App\Http\Controllers\ProductRunController::class, 'destroy'])->name('products.runs.destroy');
+    Route::get('/admin/products/{product}/runs/{run}/pick-list', [\App\Http\Controllers\ProductOrderAdminController::class, 'pickList'])->name('products.runs.pick-list');
+    Route::post('/admin/products/{product}/runs/{run}/ready', [\App\Http\Controllers\ProductOrderAdminController::class, 'markReady'])->name('products.runs.mark-ready');
+
+    // Store orders after the money moved: list, detail, hand-over, export,
+    // refunds. store.manage throughout except refund (store.issueRefunds).
+    Route::get('/admin/orders', [\App\Http\Controllers\ProductOrderAdminController::class, 'index'])->name('orders.index');
+    Route::get('/admin/orders/financials', [\App\Http\Controllers\ProductOrderAdminController::class, 'financials'])->name('orders.financials');
+    Route::get('/admin/orders/{order}', [\App\Http\Controllers\ProductOrderAdminController::class, 'show'])->name('orders.show');
+    Route::put('/admin/orders/{order}', [\App\Http\Controllers\ProductOrderAdminController::class, 'update'])->name('orders.update');
+    Route::post('/admin/orders/{order}/collected', [\App\Http\Controllers\ProductOrderAdminController::class, 'collected'])->name('orders.collected');
+    Route::post('/admin/orders/{order}/refund', [\App\Http\Controllers\ProductOrderAdminController::class, 'refund'])->name('orders.refund');
 
     Route::get('/event/latest', [\App\Http\Controllers\EventController::class, 'latest'])->name('event.latest');
     Route::middleware('can:event.reorganizeDivisions')->group(function () {

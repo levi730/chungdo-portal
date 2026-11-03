@@ -38,6 +38,13 @@ class ProductOrder extends Model implements ChargedToStripeAccount
     public const FULFILLMENT_READY = 'ready';
     public const FULFILLMENT_COLLECTED = 'collected';
 
+    /** Fulfillment states in the order they happen, with admin labels. */
+    public const FULFILLMENT_STATUSES = [
+        self::FULFILLMENT_AWAITING => 'Awaiting delivery',
+        self::FULFILLMENT_READY => 'Ready for pickup',
+        self::FULFILLMENT_COLLECTED => 'Collected',
+    ];
+
     protected $keyType = 'integer';
 
     protected $fillable = [
@@ -96,6 +103,11 @@ class ProductOrder extends Model implements ChargedToStripeAccount
         return $this->belongsTo(Payment::class);
     }
 
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(ProductOrderRefund::class)->orderBy('id');
+    }
+
     public function isPaid(): bool
     {
         return $this->status === self::STATUS_PAID;
@@ -104,6 +116,45 @@ class ProductOrder extends Model implements ChargedToStripeAccount
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isCollected(): bool
+    {
+        return $this->fulfillment_status === self::FULFILLMENT_COLLECTED;
+    }
+
+    /** What was captured for this order, less what has already gone back. */
+    public function netPaid(): float
+    {
+        return round((float) ($this->amount_paid ?? 0) - (float) $this->refunded_amount, 2);
+    }
+
+    /** The most a further refund can return. Zero for anything not paid. */
+    public function refundable(): float
+    {
+        return $this->isPaid() ? max(0, $this->netPaid()) : 0.0;
+    }
+
+    /**
+     * Everything that was paid has gone back. Such an order stays `paid` —
+     * the money did come in — but it is off the pick list, since nobody is
+     * owed a shirt.
+     */
+    public function isFullyRefunded(): bool
+    {
+        return $this->isPaid() && (float) $this->refunded_amount > 0 && $this->netPaid() <= 0;
+    }
+
+    /** A short, readable form of the uuid for lists and subject lines. */
+    public function shortReference(): string
+    {
+        return strtoupper(substr((string) $this->reference, 0, 8));
+    }
+
+    /** Scope: orders whose money arrived. */
+    public function scopePaid(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_PAID);
     }
 
     /** A guest order — no portal account behind it. */

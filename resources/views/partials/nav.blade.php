@@ -139,6 +139,7 @@
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item" href="{{ route('products.index') }}">Manage Products</a>
                                     <a class="dropdown-item" href="{{ route('products.create') }}">+ Add Product</a>
+                                    <a class="dropdown-item" href="{{ route('orders.index') }}">Orders &amp; Pick Lists</a>
                                 </div>
                             </li>
                         @endcan

@@ -497,8 +497,9 @@ under the event refund flow, which is live money.
 
 ## Open questions
 
-- Nothing blocking. Remaining build-order work is steps 7 and 8: the pick list,
-  the orders admin and the financials export, then refunds.
+- Nothing blocking. Every step of the build order is built.
+- `store.issueRefunds` and the `product_order_refunds` migration need to reach
+  production (`php artisan migrate`, `php artisan db:seed --class=PermissionSeeder`).
 
 ## Progress
 
@@ -656,10 +657,50 @@ under the event refund flow, which is live money.
   a per-account Stripe failure and carries on, has `--dry-run`, and a test asserts
   it is actually on the schedule, because an unscheduled sweep is worthless.
 
+- **Steps 7 and 8 done (2026-11-02):** the orders admin, the pick list, the
+  financials export and refunds. `ProductOrderAdminController`,
+  `App\Livewire\Admin\ProductOrdersTable`, `App\Services\Store\PickList`,
+  `App\Exports\Store\FinancialsExport`, `App\Services\Store\ProductOrderRefunder`,
+  the `product_order_refunds` table and `ProductOrderRefund` model, the
+  `store.issueRefunds` permission, and `tests/Feature/Store/{OrdersAdminTest,
+  ProductOrderRefundTest}`. Full suite green at 505.
+
+  - **Orders** (`/admin/orders`): a Livewire table filtered by product, pickup
+    school, payment status (defaults to Paid) and hand-over status; a row opens
+    the order. The detail page shows the lines with their run, the Stripe
+    account and ids, the refund history, and a hand-over form
+    (awaiting / ready / collected + an admin note the buyer never sees).
+  - **Pick list** (`/admin/products/{product}/runs/{run}/pick-list`): one run,
+    PAID orders only, fully refunded ones excluded. A whole-run variant tally
+    (what to order from the printer), then one block per pickup school with
+    that school's tally and its orders, each with a Collected checkbox that
+    POSTs `orders.collected`. Print CSS puts each school on its own page with
+    an empty box to tick by hand. An order spanning two runs shows only this
+    run's lines plus "+ N items from another run". "Mark all ready for pickup"
+    flips every awaiting order on the run when the shipment arrives.
+  - **Financials export** (`/admin/orders/financials?run=|product=`): the same
+    shape as the event ledger — one row per paid order with dollars by product,
+    one negative row per refund — plus a Stripe account column on every row
+    and a net per account, because products may name different accounts. A
+    run-scoped export counts only that run's lines of a mixed order.
+  - **Refunds** are on the order page, gated on `store.issueRefunds` (no role,
+    coordinator allowlist, super.admin bypass — exactly like
+    `event.issueRefunds`). The amount is the admin's, up to captured minus
+    already refunded; any number of partial refunds. One Stripe refund on the
+    ORDER's account per call, one `product_order_refunds` row,
+    `refunded_amount` the running total. The order stays `paid` and its items
+    untouched; a fully refunded order drops off the pick list. Row lock on the
+    order around the Stripe call; a records failure after the refund went out
+    logs the refund id at error level. The event-scoped `refunds` table was
+    left alone, as decided above.
+
+  Not checked in a browser: the dev database holds one unpaid order, so the
+  pages were verified through the feature tests' rendered responses only.
+
 ### Still to build
 
-Steps 6–8 of the build order: home page highlighting, the pick list + orders
-admin + financials export, and refunds. Nothing below is required to take money.
+Nothing in the build order. Shipping (`fulfillment_method` + address +
+`shipping` amount) remains the designed-but-unbuilt extension.
 
 **Local `.env` warning:** `STRIPE_MAIN_SCHOOL_SECRET` is a **live** key while the
 association's is `sk_test_`. Anything that charges `main_school` from a developer

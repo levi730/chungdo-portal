@@ -7,8 +7,11 @@
 @section('content')
 <div class="container-xl">
     <div class="content">
-        <div class="mb-3">
+        <div class="mb-3 d-flex align-items-center">
             <a href="{{ route('products.edit', $product) }}" class="btn btn-link px-0">&larr; Back to {{ $product->name }}</a>
+            @unless($creating)
+                <a href="{{ route('products.runs.pick-list', [$product, $run]) }}" class="btn btn-outline-secondary ms-auto">Pick list &amp; orders</a>
+            @endunless
         </div>
 
         @if(session('success'))

@@ -137,6 +137,11 @@ class PermissionSeeder extends Seeder
             // through the Gate::before bypass and the coordinator through
             // config/portal.php; anyone else gets it from the admin user form.
             'event.issueRefunds',
+            // Refunding a store order from its admin page. The same reasoning
+            // as event.issueRefunds: money out on one person's say-so, so no
+            // role holds it — not even store.manage, which is the wider circle
+            // that edits products and hands out shirts.
+            'store.issueRefunds',
         ];
 
         // Spatie caches the permission list for the life of the request. A

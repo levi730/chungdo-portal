@@ -213,7 +213,8 @@
                                         <td>{{ optional($run->closes_at)->format('M j, Y g:ia') ?? '—' }}</td>
                                         <td>{{ optional($run->expected_arrival_at)->format('M j, Y') ?? '—' }}</td>
                                         <td class="text-center">{{ $run->variants_count }}</td>
-                                        <td class="text-end">
+                                        <td class="text-end text-nowrap">
+                                            <a href="{{ route('products.runs.pick-list', [$product, $run]) }}" class="btn btn-sm btn-outline-secondary">Pick list</a>
                                             <a href="{{ route('products.runs.edit', [$product, $run]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                                         </td>
                                     </tr>

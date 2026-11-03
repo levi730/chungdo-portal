@@ -59,6 +59,7 @@ return [
         'users.manage',
         'payments.receive',
         'event.issueRefunds',
+        'store.issueRefunds',
     ],
 
 ];

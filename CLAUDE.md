@@ -107,9 +107,27 @@ turning it on is a config change rather than a migration over rows holding
 money. That decision has **not** been checked with whoever handles the
 association's filings — it means "not yet", not "not owed".
 
-Remaining build-order work: the pick list, the orders admin and the financials
-export, then refunds. The pick list is the operational one — it is how the
-shirts actually get handed out.
+**Steps 7–8 are done (2026-11-02):** the orders admin (`/admin/orders`,
+`ProductOrderAdminController`, `App\Livewire\Admin\ProductOrdersTable`), the
+per-run pick list (`App\Services\Store\PickList`, paid orders only, grouped by
+pickup school, Collected checkbox, print CSS), the store financials export
+(`App\Exports\Store\FinancialsExport`, a Stripe account column on every row
+since products may name different accounts) and refunds
+(`App\Services\Store\ProductOrderRefunder`, `product_order_refunds`). Nothing
+in the build order is left.
+
+- **Refunds are gated on `store.issueRefunds`, held by no role** — same shape
+  as `event.issueRefunds`: super.admin bypass, coordinator allowlist, or a
+  direct grant from the admin user form. `store.manage` alone shows the order
+  but not the refund form.
+- A refund goes out on the **order's** `stripe_account`, never the default.
+  Partial refunds stack; `refunded_amount` is the running total and each refund
+  is its own row. The order stays `paid` with its items intact (they itemize a
+  charge that really moved); a fully refunded order is dropped from the pick
+  list. The event-scoped `refunds` table was deliberately not reused.
+- Needs `php artisan migrate` (the `product_order_refunds` table) and
+  `php artisan db:seed --class=PermissionSeeder` wherever it is deployed. Both
+  run on the local dev and test databases only.
 
 ## Admin refunds and withdrawals
 
