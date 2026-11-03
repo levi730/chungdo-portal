@@ -393,6 +393,66 @@ it('copies the price list from an earlier run', function () {
     expect((float) $first->fresh()->variants->firstWhere('name', 'Adult T-Shirt / M')->price)->toBe(20.0);
 });
 
+it('keeps the copied price list when the form posted its (empty) variant editor', function () {
+    // The real form always posts variants_present; on a run with nothing on
+    // sale yet the editor has no rows. The sync must not undo the copy.
+    $product = runProduct();
+    $first = $product->runs()->create(['name' => 'First', 'closes_at' => now()->subDays(4)]);
+    ProductVariant::create(['product_run_id' => $first->id, 'name' => 'Adult T-Shirt / M', 'options' => ['Item' => 'Adult T-Shirt', 'Size' => 'M'], 'price' => 20, 'enabled' => true]);
+    ProductVariant::create(['product_run_id' => $first->id, 'name' => 'Adult T-Shirt / L', 'options' => ['Item' => 'Adult T-Shirt', 'Size' => 'L'], 'price' => 20, 'enabled' => true]);
+
+    $second = $product->runs()->create(['name' => 'Reprint', 'closes_at' => now()->addMonth()]);
+
+    $this->actingAs(runManager())
+        ->put(route('products.runs.update', [$product, $second]), [
+            'name' => 'Reprint',
+            'sort_order' => 1,
+            'closes_at' => now()->addMonth()->format('Y-m-d\\TH:i'),
+            'copy_from_run_id' => $first->id,
+            'variants_present' => 1,
+            'variants' => [],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', fn ($m) => str_contains($m, 'Copied 2 variants'));
+
+    expect($second->fresh()->variants()->enabled()->count())->toBe(2)
+        ->and($product->fresh()->openRun()?->id)->toBe($second->id);
+
+    // Same on create, where the editor posts one blank row.
+    $this->actingAs(runManager())
+        ->post(route('products.runs.store', $product), [
+            'name' => 'Later',
+            'sort_order' => 2,
+            'opens_at' => now()->addYear()->format('Y-m-d\TH:i'),
+            'copy_from_run_id' => $first->id,
+            'variants_present' => 1,
+            'variants' => [['id' => 0, 'name' => '', 'sku' => '', 'price' => '0.00', 'enabled' => 1, 'sort_order' => 0, 'options' => ['Item' => '', 'Size' => '']]],
+        ])
+        ->assertRedirect();
+
+    expect($product->runs()->where('name', 'Later')->firstOrFail()->variants)->toHaveCount(2);
+});
+
+it('lets a copy sit alongside rows the editor typed in the same save', function () {
+    $product = runProduct();
+    $first = $product->runs()->create(['name' => 'First', 'closes_at' => now()->subDays(4)]);
+    ProductVariant::create(['product_run_id' => $first->id, 'name' => 'Adult T-Shirt / M', 'options' => ['Item' => 'Adult T-Shirt', 'Size' => 'M'], 'price' => 20]);
+
+    $this->actingAs(runManager())
+        ->post(route('products.runs.store', $product), runPayload([
+            'name' => 'Reprint',
+            'copy_from_run_id' => $first->id,
+            'variants' => [[
+                'id' => 0, 'name' => '', 'sku' => '', 'price' => '25.00', 'enabled' => 1, 'sort_order' => 0,
+                'options' => ['Item' => 'Hoodie', 'Size' => 'M'],
+            ]],
+        ]))
+        ->assertRedirect();
+
+    $run = $product->runs()->where('name', 'Reprint')->firstOrFail();
+    expect($run->variants->pluck('name')->sort()->values()->all())->toBe(['Adult T-Shirt / M', 'Hoodie / M']);
+});
+
 it('does not duplicate when copying twice', function () {
     $product = runProduct();
     $first = $product->runs()->create(['name' => 'First', 'closes_at' => '2026-01-31 00:00:00']);

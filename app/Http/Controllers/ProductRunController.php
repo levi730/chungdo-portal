@@ -36,8 +36,8 @@ class ProductRunController extends Controller
     {
         $run = $product->runs()->create($this->attributes($request));
 
-        $copied = $this->copyFromPrevious($request, $product, $run);
         $blocked = $this->syncVariants($request, $run);
+        $copied = $this->copyFromPrevious($request, $product, $run);
 
         return redirect()->route('products.runs.edit', [$product, $run])
             ->with('success', $this->flash('Run created.', $blocked, $copied));
@@ -56,8 +56,8 @@ class ProductRunController extends Controller
 
         $run->fill($this->attributes($request))->save();
 
-        $copied = $this->copyFromPrevious($request, $product, $run);
         $blocked = $this->syncVariants($request, $run);
+        $copied = $this->copyFromPrevious($request, $product, $run);
 
         return redirect()->route('products.runs.edit', [$product, $run])
             ->with('success', $this->flash('Run saved.', $blocked, $copied));
@@ -114,7 +114,12 @@ class ProductRunController extends Controller
 
     /**
      * "Copy prices from <run>" — the reason a new run isn't 23 rows of typing.
-     * Runs before the variant sync so the copied rows are in place first.
+     *
+     * Runs AFTER the variant sync, never before: the sync deletes every variant
+     * the editor's rows don't mention, and the editor only ever saw the rows
+     * that existed when the page was rendered. Copying first put 23 fresh rows
+     * in place for the sync to delete in the same request — the flash said
+     * "Copied 23 variants" and the run stayed empty.
      */
     private function copyFromPrevious(ProductRunRequest $request, Product $product, ProductRun $run): int
     {
