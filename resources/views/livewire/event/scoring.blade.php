@@ -1,8 +1,8 @@
 <div class="container-xl">
-    @if ($division)
+    @if ($versionId)
         <div class="d-flex align-items-center mb-3">
             <button type="button" class="btn btn-link px-0 me-3" wire:click="close">&larr; Divisions</button>
-            <h2 class="mb-0">{{ $division->name }}</h2>
+            <h2 class="mb-0">{{ $label }}</h2>
         </div>
 
         @if ($error)
@@ -61,36 +61,16 @@
             @endif
         </div>
     @else
-        @foreach ($drifted as $discipline)
-            <div class="alert alert-warning">
-                The {{ $discipline }} board has been saved since it was published, so these divisions may not match the printed cards.
-            </div>
-        @endforeach
-
-        @can('event.manage')
-            <div class="card mb-3">
-                <div class="card-body d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>Results page:</strong>
-                        {{ $event->results_public ? 'public, anyone with the link can see full names' : 'signed-in members only' }}
-                        <div class="small"><a href="{{ route('event.results', $event->slug) }}">{{ route('event.results', $event->slug) }}</a></div>
-                    </div>
-                    <button type="button" class="btn btn-outline-primary" wire:click="togglePublic">
-                        {{ $event->results_public ? 'Make private' : 'Make public' }}
-                    </button>
-                </div>
-            </div>
-        @endcan
-
-        @forelse ($groups as $discipline => $divisions)
+        @forelse ($versions as $discipline => $version)
             <h2 class="mt-3 mb-3">{{ ucfirst($discipline) }}</h2>
             <div class="row row-cards mb-4">
-                @foreach ($divisions as $item)
-                    @php($itemResult = $results[$item->id] ?? null)
-                    <div class="col-md-6 col-lg-4" wire:key="division-{{ $item->id }}">
-                        <div class="card" role="button" wire:click="open({{ $item->id }})">
+                @foreach ($version->data as $index => $item)
+                    @continue(empty($item['members']))
+                    @php($itemResult = $scored[$version->id.':'.$index] ?? null)
+                    <div class="col-md-6 col-lg-4" wire:key="division-{{ $version->id }}-{{ $index }}">
+                        <div class="card" role="button" wire:click="open({{ $version->id }}, {{ $index }})">
                             <div class="card-body d-flex justify-content-between align-items-center">
-                                <span>{{ $item->name }}</span>
+                                <span>{{ $item['label'] ?? '' }}</span>
                                 @if ($itemResult?->isCompleted())
                                     <span class="badge bg-green text-white">Done</span>
                                 @elseif ($itemResult)
@@ -102,7 +82,7 @@
                 @endforeach
             </div>
         @empty
-            <div class="card"><div class="card-body text-muted">This event has no saved divisions.</div></div>
+            <div class="card"><div class="card-body text-muted">Nothing to score yet. Publish a version on Arrange Divisions first.</div></div>
         @endforelse
     @endif
 </div>

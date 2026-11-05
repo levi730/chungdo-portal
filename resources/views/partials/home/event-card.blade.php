@@ -29,6 +29,10 @@
     @if($event->slug)
         <div class="card-footer">
             <div class="d-flex">
+                @if($event->hasResults())
+                    <a href="{{ route('event.results', $event->slug) }}"
+                       class="btn btn-outline-primary {{ $large ? 'btn-lg' : '' }}">Results</a>
+                @endif
                 <a href="{{ route('event.register', $event->slug) }}"
                    class="btn btn-primary ms-auto {{ $large ? 'btn-lg' : '' }}">Details</a>
             </div>

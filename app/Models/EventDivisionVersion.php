@@ -20,6 +20,12 @@ class EventDivisionVersion extends Model
         ];
     }
 
+    /** A version from before forms divisions existed is a sparring version. */
+    public function getDisciplineAttribute(?string $value): string
+    {
+        return $value ?? EventDivision::DISCIPLINE_SPARRING;
+    }
+
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);

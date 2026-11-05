@@ -11,10 +11,10 @@ class DivisionResult extends Model
 {
     protected $fillable = [
         'event_id',
-        'event_division_id',
+        'event_division_version_id',
+        'position',
         'discipline',
         'division_name',
-        'sort_order',
         'completed_at',
         'completed_by_user_id',
     ];
@@ -29,9 +29,9 @@ class DivisionResult extends Model
         return $this->belongsTo(Event::class);
     }
 
-    public function division(): BelongsTo
+    public function version(): BelongsTo
     {
-        return $this->belongsTo(EventDivision::class, 'event_division_id');
+        return $this->belongsTo(EventDivisionVersion::class, 'event_division_version_id');
     }
 
     public function completedBy(): BelongsTo

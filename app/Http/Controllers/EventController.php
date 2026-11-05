@@ -1239,12 +1239,7 @@ class EventController extends Controller
         ])['divisions'];
 
         $svc = new \App\Services\EventDivisionService();
-
-        try {
-            $versionId = $svc->save($event, $divisions, $discipline);
-        } catch (\DomainException $e) {
-            return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
-        }
+        $versionId = $svc->save($event, $divisions, $discipline);
 
         return response()->json([
             'ok' => true,
@@ -1316,12 +1311,18 @@ class EventController extends Controller
     }
 
     /** Publish a version as the event's official arrangement. */
-    public function arrangeDivisionsPublish($slug, $versionId)
+    public function arrangeDivisionsPublish(Request $request, $slug, $versionId)
     {
         $event = Event::where('slug', $slug)->firstOrFail();
         $version = \App\Models\EventDivisionVersion::where('event_id', $event->id)->findOrFail($versionId);
 
         $svc = new \App\Services\EventDivisionService();
+
+        if ($event->publishedVersionIdFor($version->discipline) !== $version->id
+            && $refusal = $this->scoringWouldBeLost($request, $svc, $event, $version->discipline)) {
+            return $refusal;
+        }
+
         $svc->publish($event, $version);
 
         return response()->json(['ok' => true, 'published' => $svc->publishedInfo($event->fresh(), $version->discipline)]);
@@ -1331,9 +1332,31 @@ class EventController extends Controller
     {
         $event = Event::where('slug', $slug)->firstOrFail();
         $discipline = $this->resolveDiscipline($event, $request);
-        (new \App\Services\EventDivisionService())->unpublish($event, $discipline);
+        $svc = new \App\Services\EventDivisionService();
+
+        if ($refusal = $this->scoringWouldBeLost($request, $svc, $event, $discipline)) {
+            return $refusal;
+        }
+
+        $svc->unpublish($event, $discipline);
 
         return response()->json(['ok' => true, 'published' => null]);
+    }
+
+    /**
+     * Replacing the published version removes its scoring, so the request has
+     * to say the admin agreed. The check is here as well as in the browser
+     * because a page opened before scoring began knows nothing about it.
+     */
+    private function scoringWouldBeLost(Request $request, \App\Services\EventDivisionService $svc, Event $event, string $discipline): ?\Illuminate\Http\JsonResponse
+    {
+        $scored = $svc->scoredCount($event, $discipline);
+
+        if ($scored === 0 || $request->boolean('discard_scoring')) {
+            return null;
+        }
+
+        return response()->json(['ok' => false, 'scored' => $scored], 409);
     }
 
     public function eventCheckIn($slug)

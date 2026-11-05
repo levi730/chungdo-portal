@@ -66,11 +66,6 @@ Route::permanentRedirect('/store', '/gear');
 Route::get('/store/{slug}', fn (string $slug) => redirect()->route('store.show', $slug, 301))
     ->where('slug', '[A-Za-z0-9-]+');
 
-// Tournament results. Public by design once an event admin switches them on;
-// the controller and the Livewire component both check, and until then this
-// sends guests to sign in.
-Route::get('/event/{slug}/results', [\App\Http\Controllers\EventResultsController::class, 'show'])->name('event.results');
-
 // Project United (donations / t-shirts / hoodies) was retired in 2026. The
 // purchase routes are gone; the admin reports below remain because the
 // transactions are financial records. See docs/project-united-retirement.md.
@@ -228,6 +223,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/event/{slug}/register/adjust/finalize', [\App\Http\Controllers\EventController::class, 'registerAdjustFinalize'])->name('event.register-adjust-finalize');
     Route::get('/event/{slug}/register/complete', [\App\Http\Controllers\EventController::class, 'completeRegForm'])->name('event.complete-reg');
     Route::get('/event/{slug}/download/{id}', [\App\Http\Controllers\EventController::class, 'downloadMedia'])->name('event.download');
+    Route::get('/event/{slug}/results', [\App\Http\Controllers\EventResultsController::class, 'show'])->name('event.results');
+
     // Scoring. As with check-in, the Livewire component repeats this check.
     Route::get('/event/{slug}/scoring', [\App\Http\Controllers\EventResultsController::class, 'scoring'])
         ->middleware('can:event.recordResults')

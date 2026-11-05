@@ -3,30 +3,73 @@
 namespace App\Services;
 
 use App\Models\DivisionResult;
+use App\Models\Event;
 use App\Models\EventDivision;
+use App\Models\EventDivisionVersion;
 use App\Models\EventRegistration;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
  * Recording who placed in a division.
  *
+ * Scoring works from the published version of a discipline: that is what the
+ * cards were printed from. A division is the entry at a position in the
+ * version's data. Publishing a different version removes the scoring and it
+ * starts over (EventDivisionService::publish).
+ *
  * A division is scored once and then closed. A correction reopens it, which
  * takes it off the results page until it is saved again.
  */
 class DivisionResults
 {
+    /** @return array<string, EventDivisionVersion> discipline => published version */
+    public function publishedVersions(Event $event): array
+    {
+        $versions = [];
+
+        foreach ([EventDivision::DISCIPLINE_SPARRING, EventDivision::DISCIPLINE_FORMS] as $discipline) {
+            $version = EventDivisionVersion::find($event->publishedVersionIdFor($discipline));
+
+            if ($version) {
+                $versions[$discipline] = $version;
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
+     * A division's registrations. Anyone withdrawn since publishing has no
+     * registration and drops out here.
+     *
+     * @return Collection<int, EventRegistration> keyed by registration id
+     */
+    public function members(EventDivisionVersion $version, int $position): Collection
+    {
+        if (! isset($version->data[$position])) {
+            throw new InvalidArgumentException('That division is not in the published version.');
+        }
+
+        return EventRegistration::with(['user.school', 'user.rank'])
+            ->where('event_id', $version->event_id)
+            ->whereIn('id', $version->data[$position]['members'] ?? [])
+            ->get()
+            ->keyBy('id');
+    }
+
     /**
      * Save a division's places and close it.
      *
      * @param  array<int|string, int|string|null>  $places  registration id => place;
      *                                                      blank means unplaced
      */
-    public function record(EventDivision $division, array $places, User $by): DivisionResult
+    public function record(EventDivisionVersion $version, int $position, array $places, User $by): DivisionResult
     {
         $places = array_map('intval', array_filter($places, fn ($place) => $place !== null && $place !== ''));
-        $members = $division->members()->with(['user.school', 'user.rank'])->get()->keyBy('id');
+        $members = $this->members($version, $position);
 
         foreach ($places as $regId => $place) {
             if (! $members->has($regId)) {
@@ -41,22 +84,27 @@ class DivisionResults
             throw new InvalidArgumentException('Number at least one competitor before saving.');
         }
 
-        return DB::transaction(function () use ($division, $places, $members, $by) {
-            // Two scorers saving the same division must not both write placements.
-            EventDivision::whereKey($division->id)->lockForUpdate()->first();
+        return DB::transaction(function () use ($version, $position, $places, $members, $by) {
+            // Shares a lock with publishing, and keeps two scorers apart.
+            $event = Event::whereKey($version->event_id)->lockForUpdate()->firstOrFail();
 
-            $result = DivisionResult::where('event_division_id', $division->id)->first();
+            if ($event->publishedVersionIdFor($version->discipline) !== $version->id) {
+                throw new InvalidArgumentException('A different version has been published. Go back to the divisions and start again.');
+            }
+
+            $result = DivisionResult::where('event_division_version_id', $version->id)
+                ->where('position', $position)
+                ->first();
 
             if ($result?->isCompleted()) {
                 throw new InvalidArgumentException('This division is already closed. Reopen it to make a correction.');
             }
 
-            $result ??= new DivisionResult(['event_division_id' => $division->id]);
+            $result ??= new DivisionResult(['event_division_version_id' => $version->id, 'position' => $position]);
             $result->fill([
-                'event_id' => $division->event_id,
-                'discipline' => $division->discipline,
-                'division_name' => (string) $division->name,
-                'sort_order' => (int) $division->sort_order,
+                'event_id' => $version->event_id,
+                'discipline' => $version->discipline,
+                'division_name' => (string) ($version->data[$position]['label'] ?? ''),
                 'completed_at' => now(),
                 'completed_by_user_id' => $by->id,
             ])->save();
@@ -83,49 +131,5 @@ class DivisionResults
     public function reopen(DivisionResult $result): void
     {
         $result->update(['completed_at' => null, 'completed_by_user_id' => null]);
-    }
-
-    /**
-     * Why a board save would damage recorded results, or null when it would not.
-     *
-     * Natural, Auto-combine and restoring a version all produce boards with no
-     * division ids, so saving one replaces every division. A rename is fine; a
-     * scored division disappearing, or a placed competitor leaving it, is not.
-     *
-     * @param  array<int, array>  $divisions  the board as EventDivisionService::save receives it
-     */
-    public function conflictWithBoard(int $eventId, string $discipline, array $divisions): ?string
-    {
-        $results = DivisionResult::with('placements')
-            ->where('event_id', $eventId)
-            ->where('discipline', $discipline)
-            ->whereNotNull('event_division_id')
-            ->get();
-
-        if ($results->isEmpty()) {
-            return null;
-        }
-
-        $board = collect($divisions)->filter(fn ($d) => ! empty($d['id']))->keyBy(fn ($d) => (int) $d['id']);
-
-        foreach ($results as $result) {
-            if (! $board->has($result->event_division_id)) {
-                return "“{$result->division_name}” has recorded results, so it can't be removed or regenerated.";
-            }
-
-            // A competitor withdrawn since scoring has no registration and is
-            // not expected on the board.
-            $placedRegIds = EventRegistration::where('event_id', $eventId)
-                ->whereIn('user_id', $result->placements->pluck('user_id')->filter())
-                ->pluck('id')
-                ->all();
-            $onBoard = array_map('intval', $board[$result->event_division_id]['members'] ?? []);
-
-            if (array_diff($placedRegIds, $onBoard) !== []) {
-                return "A placed competitor can't be moved out of “{$result->division_name}”.";
-            }
-        }
-
-        return null;
     }
 }

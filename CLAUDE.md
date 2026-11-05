@@ -374,27 +374,34 @@ placements at `/event/{slug}/scoring` (`App\Livewire\Event\Scoring`), and
 every 30 seconds. `App\Services\DivisionResults` holds the rules. Still to come:
 the `DivisionCompleted` event, Zulip, parent email, Facebook.
 
-- **Results outlive the board.** `division_results` and `division_placements`
-  copy the division name and the competitor's name, school and rank. Natural,
-  Auto-combine and Restore all produce boards with no ids, so saving one replaces
-  every division; `EventDivisionService::save` refuses that once a division has
-  results, and refuses moving a placed competitor. Renames carry through.
+- **Scoring reads the published version, never `event_divisions`.** That is what
+  the cards were printed from, and saving the board can't touch it. A version's
+  divisions have no ids, so a `division_results` row names one by
+  `event_division_version_id` + `position` in the version's immutable `data`.
+- **Publishing a different version deletes that discipline's scoring**, and so
+  does unpublishing (`EventDivisionService::publish`/`unpublish`). The endpoints
+  answer 409 with the count until the request carries `discard_scoring`, which
+  is what drives the alert on the board. Republishing the current version is a
+  no-op. Publish and `DivisionResults::record()` share a row lock on the event.
+- Results copy the division name and the competitor's name, school and rank, so
+  a withdrawal does not lose them. A withdrawn competitor drops out of the
+  division on the scoring screen.
 - **`place` can repeat and has no ceiling** beyond the division's size: four
   places is the norm, ties are two 3rds, and a division can number everyone.
 - **`DivisionPlacement::displayName()` is the one place names are decided.**
   It returns full names because the first run is a demonstration; the
   association has not settled how minors are named. Anything that publishes a
   result (including Facebook) must go through it.
-- **Results are behind sign-in until `events.results_public` is switched on**
-  from the scoring page (`event.manage`). Signup is open, so "signed in" means
-  any verified email address. The waiver lists television, radio and film, not
-  websites or social media; that wording is unresolved.
+- **Results are behind `auth` + `verified`; there is no public page.** Signup is
+  open, so that means any verified email address, not members only. Members reach
+  results from the event page and the home page card, which show a link once a
+  division is saved. The waiver lists television, radio and film, not websites or
+  social media; that wording is unresolved.
 - A saved division is closed. Reopening needs `event.manage` and takes it off
   the results page until it is saved again.
-- Scoring reads the saved board, while cards print from the published version;
-  the scoring page warns when they differ.
 - **`event.recordResults`** is held by `event.admin`, the coordinator allowlist
-  and a one-permission `event.scorer` role. Deploying needs `php artisan migrate`,
+  and a one-permission `event.scorer` role. The Scoring link is in the admin
+  subnav. Deploying needs `php artisan migrate`,
   `db:seed --class=PermissionSeeder` and `route:cache`. Run on local dev and test
   databases only.
 

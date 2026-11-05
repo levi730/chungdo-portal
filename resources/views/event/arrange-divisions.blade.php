@@ -524,14 +524,29 @@
                     body: JSON.stringify({ note: v.note }),
                 });
             },
+            // Replacing the published version removes its scoring. The server
+            // answers 409 until the admin has agreed to that.
+            async postPublishing(url) {
+                const send = (discard) => fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ discard_scoring: discard }),
+                });
+                const res = await send(false);
+                if (res.status !== 409) return res;
+                const { scored } = await res.json();
+                const divisions = scored + (scored === 1 ? ' division' : ' divisions');
+                if (!confirm('This will remove all saved scoring for the current version (' + divisions + ') and start over. This cannot be undone. Continue?')) return null;
+                return send(true);
+            },
             async publishVersion(id) {
-                const res = await fetch(this.versionBase + '/' + id + '/publish',
-                    { method: 'POST', headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' } });
+                const res = await this.postPublishing(this.versionBase + '/' + id + '/publish');
+                if (!res) return;
                 this.published = (await res.json()).published;
                 this.versions.forEach((v) => v.published = v.id === id);
             },
             async unpublish() {
-                await fetch(this.unpublishUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' } });
+                if (!await this.postPublishing(this.unpublishUrl)) return;
                 this.published = null;
                 this.versions.forEach((v) => v.published = false);
             },
@@ -738,8 +753,6 @@
                         // This save created a fresh (unstarred) version — track it.
                         this.currentVersionId = data.version ? data.version.id : this.currentVersionId;
                         this.currentStarred = data.version ? data.version.starred : false;
-                    } else if (data.message) {
-                        alert(data.message);
                     }
                 } finally {
                     this.saving = false;

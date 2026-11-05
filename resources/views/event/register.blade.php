@@ -23,6 +23,12 @@
                 </div>
             @endcan
 
+            @if ($event->hasResults())
+                <div class="text-center mb-3">
+                    <a href="{{ route('event.results', $event->slug) }}" class="btn btn-primary">View results</a>
+                </div>
+            @endif
+
             {{--<div class="float-end">
                 @include('partials.event.admin')
             </div>--}}

@@ -79,10 +79,10 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.scoring', $event->slug) }}">Scoring</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>
-                        </li>
                     @endcan
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>
+                    </li>
                     @can('event.reorganizeDivisions')
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.arrange-divisions', $event->slug) }}">Arrange Divisions</a>

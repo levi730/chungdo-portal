@@ -25,7 +25,8 @@ class DivisionPlacement extends Model
      * post, is decided in this one place.
      *
      * Full names for now: the first run is a demonstration for the association's
-     * leaders, who have yet to settle how minors should be named.
+     * leaders, who have yet to settle how minors should be named. The results
+     * page is behind sign-in, and anyone with a verified email can sign up.
      */
     public function displayName(): string
     {

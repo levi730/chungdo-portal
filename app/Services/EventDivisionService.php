@@ -130,11 +130,6 @@ class EventDivisionService
         $versionId = 0;
 
         DB::transaction(function () use ($event, $divisions, $discipline, $column, &$versionId) {
-            $conflict = (new DivisionResults())->conflictWithBoard($event->id, $discipline, $divisions);
-            if ($conflict !== null) {
-                throw new \DomainException($conflict);
-            }
-
             $keptIds = [];
             $assignments = []; // regId => divisionId
 
@@ -149,11 +144,6 @@ class EventDivisionService
                 $model->sort_order = $order;
                 $model->save();
                 $keptIds[] = $model->id;
-
-                // The one change a scored division may take: a corrected name
-                // or a new position carries through to its results.
-                DivisionResult::where('event_division_id', $model->id)
-                    ->update(['division_name' => (string) $model->name, 'sort_order' => $order]);
 
                 foreach (($div['members'] ?? []) as $regId) {
                     $assignments[(int) $regId] = $model->id;
@@ -279,25 +269,57 @@ class EventDivisionService
         $version->save();
     }
 
-    /** Make a version the event's published arrangement for its discipline. */
+    /**
+     * Make a version the event's published arrangement for its discipline.
+     *
+     * Scoring belongs to the published version, so moving to another one
+     * removes it. Republishing the current version changes nothing.
+     */
     public function publish(Event $event, EventDivisionVersion $version): void
     {
-        if ($version->discipline === EventDivision::DISCIPLINE_FORMS) {
-            $event->published_forms_version_id = $version->id;
-        } else {
-            $event->published_version_id = $version->id;
-        }
-        $event->save();
+        DB::transaction(function () use ($event, $version) {
+            // Shares a lock with DivisionResults::record(), so a scorer can't
+            // save against a version that is being replaced.
+            Event::whereKey($event->id)->lockForUpdate()->first();
+
+            if ($event->publishedVersionIdFor($version->discipline) !== $version->id) {
+                $this->discardScoring($event, $version->discipline);
+            }
+
+            if ($version->discipline === EventDivision::DISCIPLINE_FORMS) {
+                $event->published_forms_version_id = $version->id;
+            } else {
+                $event->published_version_id = $version->id;
+            }
+            $event->save();
+        });
     }
 
     public function unpublish(Event $event, string $discipline = EventDivision::DISCIPLINE_SPARRING): void
     {
-        if ($discipline === EventDivision::DISCIPLINE_FORMS) {
-            $event->published_forms_version_id = null;
-        } else {
-            $event->published_version_id = null;
-        }
-        $event->save();
+        DB::transaction(function () use ($event, $discipline) {
+            Event::whereKey($event->id)->lockForUpdate()->first();
+
+            $this->discardScoring($event, $discipline);
+
+            if ($discipline === EventDivision::DISCIPLINE_FORMS) {
+                $event->published_forms_version_id = null;
+            } else {
+                $event->published_version_id = null;
+            }
+            $event->save();
+        });
+    }
+
+    /** How many divisions of the published arrangement have been scored. */
+    public function scoredCount(Event $event, string $discipline): int
+    {
+        return DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->count();
+    }
+
+    private function discardScoring(Event $event, string $discipline): void
+    {
+        DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->delete();
     }
 
     /**

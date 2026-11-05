@@ -4,7 +4,6 @@ namespace App\Livewire\Event;
 
 use App\Models\DivisionResult;
 use App\Models\Event;
-use App\Models\EventDivision;
 use App\Models\EventDivisionVersion;
 use App\Services\DivisionResults;
 use InvalidArgumentException;
@@ -12,10 +11,10 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * The scorer's screen: pick a division, tap competitors in finishing order.
- * A tap gives the next number; the numbers can then be edited, so 1-2-3-4 can
- * become 1-2-3-3. Actions arrive on Livewire's endpoint, not through the route
- * middleware, so each one repeats the permission check.
+ * The scorer's screen: pick a published division, tap competitors in finishing
+ * order. A tap gives the next number; the numbers can then be edited, so
+ * 1-2-3-4 can become 1-2-3-3. Actions arrive on Livewire's endpoint, not through
+ * the route middleware, so each one repeats the permission check.
  */
 class Scoring extends Component
 {
@@ -23,7 +22,10 @@ class Scoring extends Component
     public int $eventId;
 
     #[Locked]
-    public ?int $divisionId = null;
+    public ?int $versionId = null;
+
+    #[Locked]
+    public ?int $position = null;
 
     /** @var array<int|string, int|string> registration id => place */
     public array $places = [];
@@ -36,31 +38,36 @@ class Scoring extends Component
         $this->eventId = $eventId;
     }
 
-    public function open(int $divisionId): void
+    public function open(int $versionId, int $position, DivisionResults $results): void
     {
         $this->authorizeScoring();
 
-        $division = $this->division($divisionId);
-        $this->divisionId = $division->id;
+        $event = Event::findOrFail($this->eventId);
+        $version = EventDivisionVersion::where('event_id', $event->id)->findOrFail($versionId);
+
+        // The list on screen can be older than the latest publish.
+        abort_unless($event->publishedVersionIdFor($version->discipline) === $version->id, 404);
+
+        $members = $results->members($version, $position);
+
+        $this->versionId = $version->id;
+        $this->position = $position;
         $this->error = null;
         $this->places = [];
 
-        $result = DivisionResult::with('placements')->where('event_division_id', $division->id)->first();
+        $regIds = $members->pluck('id', 'user_id');
 
-        if ($result) {
-            $regIds = $division->members()->pluck('id', 'user_id');
-
-            foreach ($result->placements as $placement) {
-                if ($regIds->has($placement->user_id)) {
-                    $this->places[$regIds[$placement->user_id]] = $placement->place;
-                }
+        foreach ($this->result()?->placements ?? [] as $placement) {
+            if ($regIds->has($placement->user_id)) {
+                $this->places[$regIds[$placement->user_id]] = $placement->place;
             }
         }
     }
 
     public function close(): void
     {
-        $this->divisionId = null;
+        $this->versionId = null;
+        $this->position = null;
         $this->places = [];
         $this->error = null;
     }
@@ -100,7 +107,7 @@ class Scoring extends Component
         $this->authorizeScoring();
 
         try {
-            $results->record($this->division($this->divisionId), $this->places, auth()->user());
+            $results->record($this->version(), $this->position, $this->places, auth()->user());
             $this->close();
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
@@ -118,65 +125,39 @@ class Scoring extends Component
         }
     }
 
-    public function togglePublic(): void
-    {
-        abort_unless(auth()->user()?->can('event.manage'), 403);
-
-        $event = Event::findOrFail($this->eventId);
-        $event->update(['results_public' => ! $event->results_public]);
-    }
-
     public function render()
     {
+        $results = app(DivisionResults::class);
         $event = Event::findOrFail($this->eventId);
-
-        $divisions = EventDivision::where('event_id', $event->id)->orderBy('sort_order')->get();
-        $results = DivisionResult::where('event_id', $event->id)->get()->keyBy('event_division_id');
+        $version = $this->version();
 
         return view('livewire.event.scoring', [
             'event' => $event,
-            'groups' => $divisions->groupBy('discipline'),
-            'results' => $results,
-            'drifted' => $divisions->pluck('discipline')->unique()
-                ->filter(fn ($discipline) => $this->boardDrifted($event, $discipline))
-                ->values(),
-            'division' => $this->divisionId ? $this->division($this->divisionId) : null,
-            'members' => $this->divisionId
-                ? $this->division($this->divisionId)->members()->with(['user.school', 'user.rank'])->get()
-                    ->sortBy(fn ($reg) => $reg->user?->full_name)
+            'versions' => $results->publishedVersions($event),
+            'scored' => DivisionResult::where('event_id', $event->id)->get()
+                ->keyBy(fn ($result) => $result->event_division_version_id.':'.$result->position),
+            'label' => $version ? ($version->data[$this->position]['label'] ?? '') : null,
+            'members' => $version
+                ? $results->members($version, $this->position)->sortBy(fn ($reg) => $reg->user?->full_name)
                 : collect(),
             'result' => $this->result(),
         ]);
     }
 
-    /**
-     * Scoring reads the saved board, but the cards were printed from the
-     * published version. A later save means the two may disagree.
-     */
-    private function boardDrifted(Event $event, string $discipline): bool
+    private function version(): ?EventDivisionVersion
     {
-        $published = $event->publishedVersionIdFor($discipline);
-
-        if (! $published) {
-            return false;
-        }
-
-        $latest = (int) EventDivisionVersion::where('event_id', $event->id)
-            ->where('discipline', $discipline)
-            ->max('id');
-
-        return $latest !== $published;
-    }
-
-    private function division(int $id): EventDivision
-    {
-        return EventDivision::where('event_id', $this->eventId)->findOrFail($id);
+        return $this->versionId
+            ? EventDivisionVersion::where('event_id', $this->eventId)->find($this->versionId)
+            : null;
     }
 
     private function result(): ?DivisionResult
     {
-        return $this->divisionId
-            ? DivisionResult::where('event_division_id', $this->divisionId)->first()
+        return $this->versionId
+            ? DivisionResult::with('placements')
+                ->where('event_division_version_id', $this->versionId)
+                ->where('position', $this->position)
+                ->first()
             : null;
     }
 

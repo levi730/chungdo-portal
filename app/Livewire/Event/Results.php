@@ -23,17 +23,17 @@ class Results extends Component
 
     public function render()
     {
-        $event = Event::findOrFail($this->eventId);
+        // Polls arrive on Livewire's endpoint, not through the route's
+        // auth + verified middleware.
+        abort_unless(auth()->user()?->hasVerifiedEmail(), 403);
 
-        // Polls arrive on Livewire's endpoint, so the route's check isn't enough:
-        // switching public results off has to take effect on an open page too.
-        abort_unless($event->resultsVisibleTo(auth()->user()), 403);
+        $event = Event::findOrFail($this->eventId);
 
         return view('livewire.event.results', [
             'groups' => DivisionResult::completed()
                 ->with('placements')
                 ->where('event_id', $event->id)
-                ->orderBy('sort_order')
+                ->orderBy('position')
                 ->get()
                 ->groupBy('discipline'),
             'combined' => $event->hasForms() && $event->hasSparring(),

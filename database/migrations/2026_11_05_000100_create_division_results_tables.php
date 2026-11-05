@@ -8,20 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // One row per scored division. The division's name and order are
-        // copied here because results are a permanent record and the board
-        // that produced them is not.
+        // One row per scored division of a published version. A version's
+        // divisions have no ids of their own, so one is named by its position
+        // in the version's data, which never changes. Publishing a different
+        // version removes these rows, so only the published version has any.
         Schema::create('division_results', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('event_division_id')->nullable()->unique()->constrained()->nullOnDelete();
+            $table->foreignId('event_division_version_id')->constrained()->cascadeOnDelete();
+            $table->unsignedInteger('position');
             $table->string('discipline');
             $table->string('division_name');
-            $table->unsignedInteger('sort_order')->default(0);
             // Null while reopened for a correction: scored, but not shown.
             $table->timestamp('completed_at')->nullable();
             $table->foreignId('completed_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
+
+            $table->unique(['event_division_version_id', 'position']);
         });
 
         // A place may repeat (two thirds), and there is no ceiling on it: four
@@ -40,16 +43,10 @@ return new class extends Migration
 
             $table->unique(['division_result_id', 'user_id']);
         });
-
-        // Off by default: results stay behind sign-in until someone decides.
-        Schema::table('events', function (Blueprint $table) {
-            $table->boolean('results_public')->default(false)->after('published_forms_version_id');
-        });
     }
 
     public function down(): void
     {
-        Schema::table('events', fn (Blueprint $table) => $table->dropColumn('results_public'));
         Schema::dropIfExists('division_placements');
         Schema::dropIfExists('division_results');
     }
