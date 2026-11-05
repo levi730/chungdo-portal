@@ -41,6 +41,14 @@ class EventDivision extends Model
         return $this->hasMany(EventRegistration::class, 'event_division_id');
     }
 
+    /** Members of this division, whichever discipline it belongs to. */
+    public function members(): HasMany
+    {
+        return $this->discipline === self::DISCIPLINE_FORMS
+            ? $this->formsRegistrations()
+            : $this->registrations();
+    }
+
     /** Members when this is a forms division (assigned via forms_event_division_id). */
     public function formsRegistrations(): HasMany
     {

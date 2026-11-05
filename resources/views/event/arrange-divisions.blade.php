@@ -738,6 +738,8 @@
                         // This save created a fresh (unstarred) version — track it.
                         this.currentVersionId = data.version ? data.version.id : this.currentVersionId;
                         this.currentStarred = data.version ? data.version.starred : false;
+                    } else if (data.message) {
+                        alert(data.message);
                     }
                 } finally {
                     this.saving = false;

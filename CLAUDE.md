@@ -366,6 +366,38 @@ asked to see a map.
   address. The key is used **server-side**, so restrict it by IP, not HTTP
   referrer, and set a quota cap.
 
+## Tournament results
+
+Branch `feature/tournament-results`, **not merged or deployed**. A scorer records
+placements at `/event/{slug}/scoring` (`App\Livewire\Event\Scoring`), and
+`/event/{slug}/results` (`App\Livewire\Event\Results`) shows them, polling
+every 30 seconds. `App\Services\DivisionResults` holds the rules. Still to come:
+the `DivisionCompleted` event, Zulip, parent email, Facebook.
+
+- **Results outlive the board.** `division_results` and `division_placements`
+  copy the division name and the competitor's name, school and rank. Natural,
+  Auto-combine and Restore all produce boards with no ids, so saving one replaces
+  every division; `EventDivisionService::save` refuses that once a division has
+  results, and refuses moving a placed competitor. Renames carry through.
+- **`place` can repeat and has no ceiling** beyond the division's size: four
+  places is the norm, ties are two 3rds, and a division can number everyone.
+- **`DivisionPlacement::displayName()` is the one place names are decided.**
+  It returns full names because the first run is a demonstration; the
+  association has not settled how minors are named. Anything that publishes a
+  result (including Facebook) must go through it.
+- **Results are behind sign-in until `events.results_public` is switched on**
+  from the scoring page (`event.manage`). Signup is open, so "signed in" means
+  any verified email address. The waiver lists television, radio and film, not
+  websites or social media; that wording is unresolved.
+- A saved division is closed. Reopening needs `event.manage` and takes it off
+  the results page until it is saved again.
+- Scoring reads the saved board, while cards print from the published version;
+  the scoring page warns when they differ.
+- **`event.recordResults`** is held by `event.admin`, the coordinator allowlist
+  and a one-permission `event.scorer` role. Deploying needs `php artisan migrate`,
+  `db:seed --class=PermissionSeeder` and `route:cache`. Run on local dev and test
+  databases only.
+
 ## Testing
 
 Pest, `tests/Feature` uses `DatabaseTransactions` against MySQL (`phpunit.xml`).

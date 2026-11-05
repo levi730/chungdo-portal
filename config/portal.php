@@ -54,6 +54,7 @@ return [
         'event.approveRefunds',
         'event.manage',
         'event.checkIn',
+        'event.recordResults',
         'store.manage',
         'school.manage',
         'users.manage',

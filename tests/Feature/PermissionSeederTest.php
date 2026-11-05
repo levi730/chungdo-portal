@@ -88,6 +88,7 @@ it('grants every listed permission when most of them do not exist yet', function
             'event.checkIn',
             'event.manage',
             'event.manageAddons',
+            'event.recordResults',
             'event.reorganizeDivisions',
             'event.viewAllSchoolRegistrants',
             'store.manage',

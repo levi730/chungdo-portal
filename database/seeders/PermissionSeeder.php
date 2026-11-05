@@ -62,7 +62,15 @@ class PermissionSeeder extends Seeder
                     'event.approveRefunds',
                     'event.manage',
                     'event.checkIn',
+                    'event.recordResults',
                     'store.manage',
+                ],
+            ],
+            [
+                // A scorer at the table: records placements and nothing else.
+                'name' => 'event.scorer',
+                'permissions' => [
+                    'event.recordResults',
                 ],
             ],
             [
@@ -113,6 +121,8 @@ class PermissionSeeder extends Seeder
             // matches — so every signed-in member could check people in by
             // URL and only super admins could find the link.
             'event.checkIn',
+            // Recording who placed in a division on tournament day.
+            'event.recordResults',
             // The merchandise store. Held by the same people who run events so
             // it isn't gated on manage-users, which is a narrower circle.
             'store.manage',

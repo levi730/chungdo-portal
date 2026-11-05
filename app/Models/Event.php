@@ -59,7 +59,7 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
     /**
      * @var array
      */
-    protected $fillable = ['created_at', 'updated_at', 'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'stripe_account', 'details', 'minimum_rank_id', 'slug', 'map_url', 'require_ticket', 'highlighted', 'highlight_order', 'published_version_id', 'published_forms_version_id'];
+    protected $fillable = ['created_at', 'updated_at', 'name', 'type', 'startdatetime', 'enddatetime', 'location', 'host_school_id', 'stripe_account', 'details', 'minimum_rank_id', 'slug', 'map_url', 'require_ticket', 'highlighted', 'highlight_order', 'published_version_id', 'published_forms_version_id', 'results_public'];
 
     protected function casts(): array
     {
@@ -69,6 +69,7 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
             'startdatetime' => 'datetime',
             'enddatetime' => 'datetime',
             'highlighted' => 'boolean',
+            'results_public' => 'boolean',
         ];
     }
 
@@ -172,6 +173,17 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
     public function stripeAccountLabel(): string
     {
         return app(\App\Services\Stripe\StripeAccounts::class)->label($this->stripe_account);
+    }
+
+    public function divisionResults(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DivisionResult::class);
+    }
+
+    /** Results are behind sign-in until an event admin makes them public. */
+    public function resultsVisibleTo(?User $user): bool
+    {
+        return $this->results_public || (bool) $user?->hasVerifiedEmail();
     }
 
     public function publishedDivisionVersion(): \Illuminate\Database\Eloquent\Relations\BelongsTo

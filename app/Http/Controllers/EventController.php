@@ -1239,7 +1239,12 @@ class EventController extends Controller
         ])['divisions'];
 
         $svc = new \App\Services\EventDivisionService();
-        $versionId = $svc->save($event, $divisions, $discipline);
+
+        try {
+            $versionId = $svc->save($event, $divisions, $discipline);
+        } catch (\DomainException $e) {
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'ok' => true,

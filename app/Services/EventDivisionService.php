@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\DivisionResult;
 use App\Models\Event;
 use App\Models\EventDivision;
 use App\Models\EventDivisionVersion;
@@ -129,6 +130,11 @@ class EventDivisionService
         $versionId = 0;
 
         DB::transaction(function () use ($event, $divisions, $discipline, $column, &$versionId) {
+            $conflict = (new DivisionResults())->conflictWithBoard($event->id, $discipline, $divisions);
+            if ($conflict !== null) {
+                throw new \DomainException($conflict);
+            }
+
             $keptIds = [];
             $assignments = []; // regId => divisionId
 
@@ -143,6 +149,11 @@ class EventDivisionService
                 $model->sort_order = $order;
                 $model->save();
                 $keptIds[] = $model->id;
+
+                // The one change a scored division may take: a corrected name
+                // or a new position carries through to its results.
+                DivisionResult::where('event_division_id', $model->id)
+                    ->update(['division_name' => (string) $model->name, 'sort_order' => $order]);
 
                 foreach (($div['members'] ?? []) as $regId) {
                     $assignments[(int) $regId] = $model->id;

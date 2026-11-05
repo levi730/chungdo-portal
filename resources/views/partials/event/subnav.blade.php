@@ -1,4 +1,4 @@
-@canany(['event.viewAllSchoolRegistrants', 'event.checkIn'])
+@canany(['event.viewAllSchoolRegistrants', 'event.checkIn', 'event.recordResults'])
 
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
@@ -74,6 +74,14 @@
                             @endif
                         </ul>
                     </li>
+                    @endcan
+                    @can('event.recordResults')
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('event.scoring', $event->slug) }}">Scoring</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>
+                        </li>
                     @endcan
                     @can('event.reorganizeDivisions')
                         <li class="nav-item">
