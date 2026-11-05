@@ -45,8 +45,13 @@ class Scoring extends Component
         $event = Event::findOrFail($this->eventId);
         $version = EventDivisionVersion::where('event_id', $event->id)->findOrFail($versionId);
 
-        // The list on screen can be older than the latest publish.
-        abort_unless($event->publishedVersionIdFor($version->discipline) === $version->id, 404);
+        // The list on screen can be older than the latest publish. Closing
+        // re-renders it from the version now published.
+        if ($event->publishedVersionIdFor($version->discipline) !== $version->id) {
+            $this->close();
+
+            return;
+        }
 
         $members = $results->members($version, $position);
 

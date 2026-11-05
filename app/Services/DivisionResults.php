@@ -17,8 +17,8 @@ use InvalidArgumentException;
  *
  * Scoring works from the published version of a discipline: that is what the
  * cards were printed from. A division is the entry at a position in the
- * version's data. Publishing a different version removes the scoring and it
- * starts over (EventDivisionService::publish).
+ * version's data. Publishing a different version keeps the scoring of every
+ * division with the same competitors and clears the ones that changed.
  *
  * A division is scored once and then closed. A correction reopens it, which
  * takes it off the results page until it is saved again.
@@ -125,6 +125,75 @@ class DivisionResults
 
             return $result;
         });
+    }
+
+    /**
+     * What publishing $next would do to the scoring already saved.
+     *
+     * Versions have no division ids, so a division is recognized by who is in
+     * it. Its name and place on the board can change and the scores still
+     * hold; anyone joining or leaving means the division starts over. A
+     * competitor who has withdrawn since is ignored on both sides, so a
+     * withdrawal alone never costs a division its scores.
+     *
+     * @return array{keep: array<int, int>, lose: Collection<int, DivisionResult>}
+     *                     keep is result id => position in $next
+     */
+    public function affectedBy(EventDivisionVersion $next): array
+    {
+        $registered = EventRegistration::where('event_id', $next->event_id)->pluck('id')->flip();
+
+        $identity = function (array $division) use ($registered): string {
+            $members = array_filter(
+                array_map('intval', $division['members'] ?? []),
+                fn (int $id) => $registered->has($id),
+            );
+            sort($members);
+
+            return implode(',', $members);
+        };
+
+        $positions = [];
+        foreach ($next->data as $position => $division) {
+            $positions[$identity($division)] = $position;
+        }
+        unset($positions['']);
+
+        $keep = [];
+        $lose = collect();
+
+        $results = DivisionResult::with('version')
+            ->where('event_id', $next->event_id)
+            ->where('discipline', $next->discipline)
+            ->get();
+
+        foreach ($results as $result) {
+            $position = $positions[$identity($result->version->data[$result->position] ?? [])] ?? null;
+
+            if ($position === null) {
+                $lose->push($result);
+            } else {
+                $keep[$result->id] = $position;
+            }
+        }
+
+        return ['keep' => $keep, 'lose' => $lose];
+    }
+
+    /** Move saved scoring onto a newly published version. */
+    public function moveTo(EventDivisionVersion $next): void
+    {
+        ['keep' => $keep, 'lose' => $lose] = $this->affectedBy($next);
+
+        DivisionResult::whereKey($lose->pluck('id')->all())->delete();
+
+        foreach ($keep as $id => $position) {
+            DivisionResult::whereKey($id)->update([
+                'event_division_version_id' => $next->id,
+                'position' => $position,
+                'division_name' => (string) ($next->data[$position]['label'] ?? ''),
+            ]);
+        }
     }
 
     /** Take a closed division off the results page so it can be corrected. */

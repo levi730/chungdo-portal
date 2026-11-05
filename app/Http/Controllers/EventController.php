@@ -1316,13 +1316,15 @@ class EventController extends Controller
         $event = Event::where('slug', $slug)->firstOrFail();
         $version = \App\Models\EventDivisionVersion::where('event_id', $event->id)->findOrFail($versionId);
 
-        $svc = new \App\Services\EventDivisionService();
+        if ($event->publishedVersionIdFor($version->discipline) !== $version->id) {
+            $lost = (new \App\Services\DivisionResults())->affectedBy($version)['lose'];
 
-        if ($event->publishedVersionIdFor($version->discipline) !== $version->id
-            && $refusal = $this->scoringWouldBeLost($request, $svc, $event, $version->discipline)) {
-            return $refusal;
+            if ($refusal = $this->scoringWouldBeLost($request, $lost->pluck('division_name')->all())) {
+                return $refusal;
+            }
         }
 
+        $svc = new \App\Services\EventDivisionService();
         $svc->publish($event, $version);
 
         return response()->json(['ok' => true, 'published' => $svc->publishedInfo($event->fresh(), $version->discipline)]);
@@ -1332,31 +1334,35 @@ class EventController extends Controller
     {
         $event = Event::where('slug', $slug)->firstOrFail();
         $discipline = $this->resolveDiscipline($event, $request);
-        $svc = new \App\Services\EventDivisionService();
 
-        if ($refusal = $this->scoringWouldBeLost($request, $svc, $event, $discipline)) {
+        $lost = \App\Models\DivisionResult::where('event_id', $event->id)
+            ->where('discipline', $discipline)
+            ->pluck('division_name')
+            ->all();
+
+        if ($refusal = $this->scoringWouldBeLost($request, $lost)) {
             return $refusal;
         }
 
-        $svc->unpublish($event, $discipline);
+        (new \App\Services\EventDivisionService())->unpublish($event, $discipline);
 
         return response()->json(['ok' => true, 'published' => null]);
     }
 
     /**
-     * Replacing the published version removes its scoring, so the request has
-     * to say the admin agreed. The check is here as well as in the browser
-     * because a page opened before scoring began knows nothing about it.
+     * Refuse until the admin has agreed to the divisions losing their scoring.
+     * The check is here as well as in the browser because a page opened before
+     * scoring began knows nothing about it.
+     *
+     * @param  array<int, string>  $divisions  names of the divisions affected
      */
-    private function scoringWouldBeLost(Request $request, \App\Services\EventDivisionService $svc, Event $event, string $discipline): ?\Illuminate\Http\JsonResponse
+    private function scoringWouldBeLost(Request $request, array $divisions): ?\Illuminate\Http\JsonResponse
     {
-        $scored = $svc->scoredCount($event, $discipline);
-
-        if ($scored === 0 || $request->boolean('discard_scoring')) {
+        if ($divisions === [] || $request->boolean('discard_scoring')) {
             return null;
         }
 
-        return response()->json(['ok' => false, 'scored' => $scored], 409);
+        return response()->json(['ok' => false, 'divisions' => $divisions], 409);
     }
 
     public function eventCheckIn($slug)

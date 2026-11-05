@@ -524,8 +524,8 @@
                     body: JSON.stringify({ note: v.note }),
                 });
             },
-            // Replacing the published version removes its scoring. The server
-            // answers 409 until the admin has agreed to that.
+            // A division whose competitors changed loses its scoring. The server
+            // answers 409, naming them, until the admin has agreed to that.
             async postPublishing(url) {
                 const send = (discard) => fetch(url, {
                     method: 'POST',
@@ -534,9 +534,9 @@
                 });
                 const res = await send(false);
                 if (res.status !== 409) return res;
-                const { scored } = await res.json();
-                const divisions = scored + (scored === 1 ? ' division' : ' divisions');
-                if (!confirm('This will remove all saved scoring for the current version (' + divisions + ') and start over. This cannot be undone. Continue?')) return null;
+                const { divisions } = await res.json();
+                const heading = divisions.length === 1 ? 'This division' : 'These ' + divisions.length + ' divisions';
+                if (!confirm(heading + ' will lose saved scoring and start over:\n\n' + divisions.join('\n') + '\n\nThis cannot be undone. Continue?')) return null;
                 return send(true);
             },
             async publishVersion(id) {

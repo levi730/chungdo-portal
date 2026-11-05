@@ -272,8 +272,9 @@ class EventDivisionService
     /**
      * Make a version the event's published arrangement for its discipline.
      *
-     * Scoring belongs to the published version, so moving to another one
-     * removes it. Republishing the current version changes nothing.
+     * Scoring follows its division onto the new version. A division whose
+     * competitors changed starts over (DivisionResults::affectedBy), and
+     * republishing the current version changes nothing.
      */
     public function publish(Event $event, EventDivisionVersion $version): void
     {
@@ -283,7 +284,7 @@ class EventDivisionService
             Event::whereKey($event->id)->lockForUpdate()->first();
 
             if ($event->publishedVersionIdFor($version->discipline) !== $version->id) {
-                $this->discardScoring($event, $version->discipline);
+                (new DivisionResults())->moveTo($version);
             }
 
             if ($version->discipline === EventDivision::DISCIPLINE_FORMS) {
@@ -300,7 +301,8 @@ class EventDivisionService
         DB::transaction(function () use ($event, $discipline) {
             Event::whereKey($event->id)->lockForUpdate()->first();
 
-            $this->discardScoring($event, $discipline);
+            // With nothing published there is no division for scoring to follow.
+            DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->delete();
 
             if ($discipline === EventDivision::DISCIPLINE_FORMS) {
                 $event->published_forms_version_id = null;
@@ -309,17 +311,6 @@ class EventDivisionService
             }
             $event->save();
         });
-    }
-
-    /** How many divisions of the published arrangement have been scored. */
-    public function scoredCount(Event $event, string $discipline): int
-    {
-        return DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->count();
-    }
-
-    private function discardScoring(Event $event, string $discipline): void
-    {
-        DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->delete();
     }
 
     /**

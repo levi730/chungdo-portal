@@ -378,11 +378,14 @@ the `DivisionCompleted` event, Zulip, parent email, Facebook.
   the cards were printed from, and saving the board can't touch it. A version's
   divisions have no ids, so a `division_results` row names one by
   `event_division_version_id` + `position` in the version's immutable `data`.
-- **Publishing a different version deletes that discipline's scoring**, and so
-  does unpublishing (`EventDivisionService::publish`/`unpublish`). The endpoints
-  answer 409 with the count until the request carries `discard_scoring`, which
-  is what drives the alert on the board. Republishing the current version is a
-  no-op. Publish and `DivisionResults::record()` share a row lock on the event.
+- **Scoring follows its division onto a newly published version.** Versions have
+  no division ids, so `DivisionResults::affectedBy()` recognizes a division by who
+  is in it. A rename or a move on the board keeps the scores; anyone joining or
+  leaving clears that division only, and a withdrawal alone does not count.
+  Unpublishing clears the discipline, since there is nothing left to follow.
+  The endpoints answer 409 with the affected division names until the request
+  carries `discard_scoring`, which is what drives the alert on the board.
+  Publish and `DivisionResults::record()` share a row lock on the event.
 - Results copy the division name and the competitor's name, school and rank, so
   a withdrawal does not lose them. A withdrawn competitor drops out of the
   division on the scoring screen.

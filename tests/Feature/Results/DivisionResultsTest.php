@@ -46,6 +46,38 @@ function resultsStaff(string ...$permissions): User
     return $user;
 }
 
+function sparringScored(Event $event): int
+{
+    return DivisionResult::where('event_id', $event->id)->where('discipline', 'sparring')->count();
+}
+
+/** @return array{0: Event, 1: EventDivisionVersion, 2: array<int>} two divisions, each scored: A is r0-r2, B is r3-r5 */
+function twoScoredDivisions(): array
+{
+    [$event, , $r] = scoredEvent(6);
+    $svc = new EventDivisionService();
+    $version = EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1], $r[2]]],
+        ['id' => null, 'label' => 'Div B', 'members' => [$r[3], $r[4], $r[5]]],
+    ]));
+    $svc->publish($event, $version);
+
+    $results = new DivisionResults();
+    $results->record($version, 0, [$r[0] => 1], resultsStaff());
+    $results->record($version, 1, [$r[3] => 1], resultsStaff());
+
+    return [$event, $version, $r];
+}
+
+/** Add a competitor to the event without placing them anywhere. */
+function lateRegistration(Event $event): int
+{
+    $user = User::factory()->create();
+    $event->registrations()->attach($user->id, ['amount_due' => 0, 'amount_paid' => 0]);
+
+    return (int) EventRegistration::where('event_id', $event->id)->where('user_id', $user->id)->value('id');
+}
+
 it('records places and closes the division', function () {
     [, $version, $r] = scoredEvent();
 
@@ -145,16 +177,62 @@ it('leaves scoring alone when the board is saved', function () {
     expect(DivisionResult::where('event_id', $event->id)->count())->toBe(1);
 });
 
-it('removes scoring when a different version is published', function () {
-    [$event, $version, $r] = scoredEvent();
-    (new DivisionResults())->record($version, 0, [$r[0] => 1], resultsStaff());
+it('clears only the division that changed when a new version is published', function () {
+    [$event, , $r] = twoScoredDivisions();
+    $late = lateRegistration($event);
     $svc = new EventDivisionService();
-    $next = EventDivisionVersion::find($svc->save($event, [['id' => null, 'label' => 'Rebuilt', 'members' => $r]]));
 
+    $svc->publish($event, EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1], $r[2], $late]],
+        ['id' => null, 'label' => 'Div B', 'members' => [$r[3], $r[4], $r[5]]],
+    ])));
+
+    expect(DivisionResult::where('event_id', $event->id)->pluck('division_name')->all())->toBe(['Div B']);
+    expect(DivisionPlacement::whereHas('result', fn ($q) => $q->where('event_id', $event->id))->count())->toBe(1);
+});
+
+it('keeps a closed division scored and reopenable on the new version', function () {
+    [$event, , $r] = twoScoredDivisions();
+    $svc = new EventDivisionService();
+
+    $next = EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div B renamed', 'members' => [$r[5], $r[4], $r[3]]],
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1], $r[2]]],
+    ]));
     $svc->publish($event, $next);
 
-    expect(DivisionResult::where('event_id', $event->id)->count())->toBe(0);
-    expect(DivisionPlacement::count())->toBe(0);
+    $moved = DivisionResult::where('division_name', 'Div B renamed')->where('event_id', $event->id)->firstOrFail();
+    expect($moved->event_division_version_id)->toBe($next->id);
+    expect($moved->position)->toBe(0);
+    expect($moved->isCompleted())->toBeTrue();
+    expect(DivisionResult::where('event_id', $event->id)->count())->toBe(2);
+
+    expect(fn () => (new DivisionResults())->record($next, 0, [$r[4] => 1], resultsStaff()))
+        ->toThrow(InvalidArgumentException::class, 'already closed');
+});
+
+it('does not count a withdrawal as a change to the division', function () {
+    [$event, , $r] = twoScoredDivisions();
+    DB::table('event_registrations')->where('id', $r[1])->delete();
+    $svc = new EventDivisionService();
+
+    $svc->publish($event, EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[2]]],
+        ['id' => null, 'label' => 'Div B', 'members' => [$r[3], $r[4], $r[5]]],
+    ])));
+
+    expect(sparringScored($event))->toBe(2);
+});
+
+it('clears a division that was merged away', function () {
+    [$event, , $r] = twoScoredDivisions();
+    $svc = new EventDivisionService();
+
+    $svc->publish($event, EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Merged', 'members' => $r],
+    ])));
+
+    expect(sparringScored($event))->toBe(0);
 });
 
 it('keeps scoring when the same version is republished, and for the other discipline', function () {
@@ -165,27 +243,45 @@ it('keeps scoring when the same version is republished, and for the other discip
     (new DivisionResults())->record($sparring, 0, [$r[0] => 1], resultsStaff());
 
     $svc->publish($event, $sparring);
-    expect($svc->scoredCount($event, 'sparring'))->toBe(1);
+    expect(sparringScored($event))->toBe(1);
 
     $svc->publish($event, EventDivisionVersion::find($svc->save($event, [['id' => null, 'label' => 'Forms 2', 'members' => $r]], 'forms')));
-    expect($svc->scoredCount($event, 'sparring'))->toBe(1);
+    expect(sparringScored($event))->toBe(1);
 });
 
-it('asks before publishing over saved scoring', function () {
-    [$event, $version, $r] = scoredEvent();
-    (new DivisionResults())->record($version, 0, [$r[0] => 1], resultsStaff());
+it('names the divisions that would lose scoring before publishing', function () {
+    [$event, $version, $r] = twoScoredDivisions();
+    $late = lateRegistration($event);
     $svc = new EventDivisionService();
-    $next = EventDivisionVersion::find($svc->save($event, [['id' => null, 'label' => 'Rebuilt', 'members' => $r]]));
+    $next = EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1], $r[2], $late]],
+        ['id' => null, 'label' => 'Div B', 'members' => [$r[3], $r[4], $r[5]]],
+    ]));
     $url = route('event.arrange-divisions.publish', [$event->slug, $next->id]);
     $admin = resultsStaff('event.reorganizeDivisions');
 
-    $this->actingAs($admin)->postJson($url)->assertStatus(409)->assertJson(['ok' => false, 'scored' => 1]);
+    $this->actingAs($admin)->postJson($url)->assertStatus(409)->assertJson(['ok' => false, 'divisions' => ['Div A']]);
     expect($event->fresh()->published_version_id)->toBe($version->id);
-    expect($svc->scoredCount($event, 'sparring'))->toBe(1);
+    expect(sparringScored($event))->toBe(2);
 
     $this->actingAs($admin)->postJson($url, ['discard_scoring' => true])->assertOk();
     expect($event->fresh()->published_version_id)->toBe($next->id);
-    expect($svc->scoredCount($event, 'sparring'))->toBe(0);
+    expect(sparringScored($event))->toBe(1);
+});
+
+it('does not ask when no scored division changed', function () {
+    [$event, , $r] = twoScoredDivisions();
+    $svc = new EventDivisionService();
+    $next = EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1], $r[2]]],
+        ['id' => null, 'label' => 'Div B', 'members' => [$r[3], $r[4], $r[5]]],
+    ]));
+
+    $this->actingAs(resultsStaff('event.reorganizeDivisions'))
+        ->postJson(route('event.arrange-divisions.publish', [$event->slug, $next->id]))
+        ->assertOk();
+
+    expect(sparringScored($event))->toBe(2);
 });
 
 it('does not ask when nothing has been scored, or when republishing', function () {
@@ -198,7 +294,7 @@ it('does not ask when nothing has been scored, or when republishing', function (
 
     (new DivisionResults())->record($next, 0, [$r[0] => 1], resultsStaff());
     $this->actingAs($admin)->postJson(route('event.arrange-divisions.publish', [$event->slug, $next->id]))->assertOk();
-    expect($svc->scoredCount($event, 'sparring'))->toBe(1);
+    expect(sparringScored($event))->toBe(1);
 });
 
 it('asks before unpublishing over saved scoring', function () {
@@ -259,7 +355,7 @@ it('shows a scorer the error when the version was replaced under them', function
     expect(DivisionResult::where('event_id', $event->id)->count())->toBe(0);
 });
 
-it('will not open a division of an unpublished version', function () {
+it('sends a scorer with a stale list back to the current divisions', function () {
     [$event, $version, $r] = scoredEvent();
     $svc = new EventDivisionService();
     $svc->publish($event, EventDivisionVersion::find($svc->save($event, [['id' => null, 'label' => 'Rebuilt', 'members' => $r]])));
@@ -267,7 +363,9 @@ it('will not open a division of an unpublished version', function () {
     Livewire::actingAs(resultsStaff('event.recordResults'))
         ->test(Scoring::class, ['eventId' => $event->id])
         ->call('open', $version->id, 0)
-        ->assertNotFound();
+        ->assertOk()
+        ->assertSet('versionId', null)
+        ->assertSee('Rebuilt');
 });
 
 it('tells the scorer when nothing is published', function () {
