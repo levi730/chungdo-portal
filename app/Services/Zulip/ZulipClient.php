@@ -210,6 +210,22 @@ class ZulipClient
     }
 
     /** The bot's own Zulip user id, looked up once. */
+    /** Post to a channel. Returns the new message's id. */
+    public function sendChannelMessage(string $channel, string $topic, string $content): int
+    {
+        return (int) $this->post('/messages', [
+            'type' => 'channel',
+            'to' => $channel,
+            'topic' => $topic,
+            'content' => $content,
+        ])['id'];
+    }
+
+    public function updateMessage(int $messageId, string $content): void
+    {
+        $this->patch("/messages/{$messageId}", ['content' => $content]);
+    }
+
     public function botUserId(): ?int
     {
         return $this->botUserId ??= (int) ($this->get('/users/me')['user_id'] ?? 0) ?: null;

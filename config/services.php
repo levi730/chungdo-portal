@@ -50,6 +50,16 @@ return [
         'site' => env('ZULIP_SITE'),           // e.g. https://chat.chungdo.org
         'bot_email' => env('ZULIP_BOT_EMAIL'), // the sync bot's email
         'bot_api_key' => env('ZULIP_BOT_API_KEY'),
+        // Tournament results posted to a channel, with their own bot: the bot
+        // above holds organization-owner rights and this only has to post.
+        // Nothing is sent until the channel is set.
+        'results' => [
+            'site' => env('ZULIP_RESULTS_SITE'),
+            'bot_email' => env('ZULIP_RESULTS_BOT_EMAIL'),
+            'bot_api_key' => env('ZULIP_RESULTS_BOT_API_KEY'),
+            'channel' => env('ZULIP_RESULTS_CHANNEL'),
+        ],
+
         // Name of the Zulip custom profile field that receives the belt rank.
         'belt_rank_field' => env('ZULIP_BELT_RANK_FIELD', 'Belt rank'),
 

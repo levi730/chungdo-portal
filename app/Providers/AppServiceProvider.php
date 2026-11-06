@@ -2,11 +2,16 @@
 
 namespace App\Providers;
 
+use App\Events\DivisionCleared;
+use App\Events\DivisionCompleted;
+use App\Events\DivisionReopened;
 use App\Models\Event;
 use App\Models\School;
 use App\Services\Coordinator;
+use App\Services\Zulip\PostResultToZulip;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event as Events;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -48,6 +53,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        Events::listen(
+            [DivisionCompleted::class, DivisionReopened::class, DivisionCleared::class],
+            PostResultToZulip::class,
+        );
 
         Sendportal::setCurrentWorkspaceIdResolver(function () {
             return 1;

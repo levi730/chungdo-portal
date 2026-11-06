@@ -302,7 +302,9 @@ class EventDivisionService
             Event::whereKey($event->id)->lockForUpdate()->first();
 
             // With nothing published there is no division for scoring to follow.
-            DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->delete();
+            (new DivisionResults())->clear(
+                DivisionResult::where('event_id', $event->id)->where('discipline', $discipline)->get()
+            );
 
             if ($discipline === EventDivision::DISCIPLINE_FORMS) {
                 $event->published_forms_version_id = null;

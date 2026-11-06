@@ -372,7 +372,7 @@ Branch `feature/tournament-results`, **not merged or deployed**. A scorer record
 placements at `/event/{slug}/scoring` (`App\Livewire\Event\Scoring`), and
 `/event/{slug}/results` (`App\Livewire\Event\Results`) shows them, polling
 every 30 seconds. `App\Services\DivisionResults` holds the rules. Still to come:
-the `DivisionCompleted` event, Zulip, parent email, Facebook.
+parent email, Facebook.
 
 - **Scoring reads the published version, never `event_divisions`.** That is what
   the cards were printed from, and saving the board can't touch it. A version's
@@ -401,12 +401,32 @@ the `DivisionCompleted` event, Zulip, parent email, Facebook.
   page and the home page card, which show a link once a division is saved. The
   waiver lists television, radio and film, not websites or social media; that
   wording is unresolved.
+- **Saving fires `DivisionCompleted`**; reopening fires `DivisionReopened`, and
+  losing scoring fires `DivisionCleared`. New outbound channels are more listeners
+  on these. They dispatch after commit and carry ids, because a queued listener
+  can run after the result has moved on: read its state when the job runs.
+- **Zulip posts need `ZULIP_RESULTS_CHANNEL`, and nothing is sent without it.**
+  Use a private test channel in development and put the real one in production's
+  `.env` only. `App\Services\Zulip\ResultsChannel` has its own bot
+  (`ZULIP_RESULTS_*`), and builds its own client because the container's
+  `ZulipClient` is the sync bot, which holds owner rights. `plain()` strips markup
+  from every name so nothing can become a mention.
+- **Corrections edit the original post where Zulip allows it** and otherwise post
+  a new one marked as a correction. An incoming webhook bot can only send, so with
+  that bot type corrections are always new posts. A generic bot can edit, within
+  Zulip's message edit time limit.
+- `PostResultToZulip` is registered in `AppServiceProvider`, not discovered from
+  `app/Listeners`, so a stale event cache in production can't drop it. It runs on
+  the `zulip` queue, which the `chungdo-sp-zulip-sync` worker on kronos serves one
+  job at a time, so a running sync delays results. Locally, nothing runs the queue:
+  `ddev exec php artisan queue:work --queue=zulip --stop-when-empty`.
 - A saved division is closed. Reopening needs `event.manage` and takes it off
   the results page until it is saved again.
 - **`event.recordResults`** is held by `event.admin`, the coordinator allowlist
   and a one-permission `event.scorer` role. The Scoring link is in the admin
   subnav. Deploying needs `php artisan migrate`,
-  `db:seed --class=PermissionSeeder` and `route:cache`. Run on local dev and test
+  `db:seed --class=PermissionSeeder`, `route:cache` and `queue:restart`, since the
+  workers keep the old code until they restart. Run on local dev and test
   databases only.
 
 ## Testing

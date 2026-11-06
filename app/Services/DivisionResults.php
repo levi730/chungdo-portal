@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Events\DivisionCleared;
+use App\Events\DivisionCompleted;
+use App\Events\DivisionReopened;
 use App\Models\DivisionResult;
 use App\Models\Event;
 use App\Models\EventDivision;
@@ -84,7 +87,7 @@ class DivisionResults
             throw new InvalidArgumentException('Number at least one competitor before saving.');
         }
 
-        return DB::transaction(function () use ($version, $position, $places, $members, $by) {
+        $result = DB::transaction(function () use ($version, $position, $places, $members, $by) {
             // Shares a lock with publishing, and keeps two scorers apart.
             $event = Event::whereKey($version->event_id)->lockForUpdate()->firstOrFail();
 
@@ -125,6 +128,10 @@ class DivisionResults
 
             return $result;
         });
+
+        DivisionCompleted::dispatch($result->id);
+
+        return $result;
     }
 
     /**
@@ -185,7 +192,7 @@ class DivisionResults
     {
         ['keep' => $keep, 'lose' => $lose] = $this->affectedBy($next);
 
-        DivisionResult::whereKey($lose->pluck('id')->all())->delete();
+        $this->clear($lose);
 
         foreach ($keep as $id => $position) {
             DivisionResult::whereKey($id)->update([
@@ -200,5 +207,21 @@ class DivisionResults
     public function reopen(DivisionResult $result): void
     {
         $result->update(['completed_at' => null, 'completed_by_user_id' => null]);
+
+        DivisionReopened::dispatch($result->id);
+    }
+
+    /**
+     * Remove divisions' scoring.
+     *
+     * @param  Collection<int, DivisionResult>  $results
+     */
+    public function clear(Collection $results): void
+    {
+        foreach ($results as $result) {
+            DivisionCleared::dispatch($result->event_id, $result->discipline, $result->division_name, $result->zulip_message_id);
+        }
+
+        DivisionResult::whereKey($results->pluck('id')->all())->delete();
     }
 }

@@ -17,6 +17,7 @@ class DivisionResult extends Model
         'division_name',
         'completed_at',
         'completed_by_user_id',
+        'zulip_message_id',
     ];
 
     protected function casts(): array
