@@ -302,6 +302,17 @@ in by URL and only super admins could find the link.
 - Needs `php artisan db:seed --class=PermissionSeeder` wherever it is deployed.
   Run on local dev and test databases only so far. Until it runs in production
   nobody — including event admins — can open check-in there.
+- **Scanning.** The list takes a hardware scanner (`public/js/barcode_scanner.js`,
+  which types the code as keystrokes) or, on a touch device, the camera
+  (`public/js/check_in_camera.js`, the Scan QR button). Both open the details
+  page; nothing is written until someone taps Save & Check In there. The camera
+  needs HTTPS, so a phone cannot test against `chungdo.ddev.site`.
+- `public/js/qr-scanner/` is the unmodified `qr-scanner` 1.4.2 package, committed
+  rather than bundled because `public/build` is gitignored and the camera should
+  not depend on a build step at deploy. It loads on the first tap.
+- The camera resumes by itself back at the list for 10 minutes (`sessionStorage`)
+  until Close camera is tapped. A failed keyboard scan stays silent on purpose:
+  typing in the search box and pressing Enter reaches the same handler.
 
 ## Member notes
 

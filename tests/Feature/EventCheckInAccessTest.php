@@ -82,6 +82,23 @@ it('lets a holder of event.checkIn open the check-in list', function () {
         ->assertSee('Registrant Check-In');
 });
 
+it('offers the camera scanner on the check-in list', function () {
+    $event = checkInEvent();
+
+    $this->actingAs(checkInStaff())
+        ->get(route('event.check-in', $event->slug))
+        ->assertOk()
+        ->assertSee('Scan QR')
+        ->assertSee('js/check_in_camera.js')
+        ->assertSee('js/qr-scanner/qr-scanner.min.js')
+        // The camera script needs both files, and a hardware scan needs this one.
+        ->assertSee('js/barcode_scanner.js');
+
+    expect(public_path('js/check_in_camera.js'))->toBeFile()
+        ->and(public_path('js/qr-scanner/qr-scanner.min.js'))->toBeFile()
+        ->and(public_path('js/qr-scanner/qr-scanner-worker.min.js'))->toBeFile();
+});
+
 it('lets the event.checkin role in without making its holder an event admin', function () {
     $event = checkInEvent();
 
