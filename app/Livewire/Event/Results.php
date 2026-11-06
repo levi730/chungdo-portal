@@ -23,10 +23,6 @@ class Results extends Component
 
     public function render()
     {
-        // Polls arrive on Livewire's endpoint, not through the route's
-        // auth + verified middleware.
-        abort_unless(auth()->user()?->hasVerifiedEmail(), 403);
-
         $event = Event::findOrFail($this->eventId);
 
         return view('livewire.event.results', [

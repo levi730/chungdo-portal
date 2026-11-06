@@ -81,8 +81,8 @@ Step 3a (public storefront + cart) is done: `/gear`, `/gear/{slug}`,
 **Checkout is not built** — that is the next piece, and it needs the sales-tax
 answer first.
 
-- **The store routes are the portal's only public pages.** They sit outside the
-  `auth`+`verified` group on purpose. Adding anything there exposes it to
+- **The store routes and `/event/{slug}/results` are the portal's only public
+  pages.** They sit outside the `auth`+`verified` group on purpose. Adding anything there exposes it to
   signed-out visitors — check before you put a route above that group.
 - **The cart is session state, keyed `[variant_id => qty]`.** Nothing else in
   this portal keeps session state between requests. Do not write a `pending`
@@ -395,11 +395,12 @@ the `DivisionCompleted` event, Zulip, parent email, Facebook.
   It returns full names because the first run is a demonstration; the
   association has not settled how minors are named. Anything that publishes a
   result (including Facebook) must go through it.
-- **Results are behind `auth` + `verified`; there is no public page.** Signup is
-  open, so that means any verified email address, not members only. Members reach
-  results from the event page and the home page card, which show a link once a
-  division is saved. The waiver lists television, radio and film, not websites or
-  social media; that wording is unresolved.
+- **The results page is public**, with full names, for anyone with the link. It
+  is outside the `auth`+`verified` group and marked noindex; there is no switch,
+  so a division appears the moment it is saved. Members reach it from the event
+  page and the home page card, which show a link once a division is saved. The
+  waiver lists television, radio and film, not websites or social media; that
+  wording is unresolved.
 - A saved division is closed. Reopening needs `event.manage` and takes it off
   the results page until it is saved again.
 - **`event.recordResults`** is held by `event.admin`, the coordinator allowlist

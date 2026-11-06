@@ -26,7 +26,7 @@ class DivisionPlacement extends Model
      *
      * Full names for now: the first run is a demonstration for the association's
      * leaders, who have yet to settle how minors should be named. The results
-     * page is behind sign-in, and anyone with a verified email can sign up.
+     * page is public, so this is what anyone with the link sees.
      */
     public function displayName(): string
     {

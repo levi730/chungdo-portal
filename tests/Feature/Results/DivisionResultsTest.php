@@ -398,21 +398,27 @@ it('keeps reopening to event.manage', function () {
         ->assertForbidden();
 });
 
-it('shows results to verified members and nobody else', function () {
+it('shows results to anyone with the link, signed in or not', function () {
     [$event, $version, $r] = scoredEvent();
     (new DivisionResults())->record($version, 0, [$r[0] => 1], resultsStaff());
     $name = DivisionPlacement::whereHas('result', fn ($q) => $q->where('event_id', $event->id))->value('name');
     $url = route('event.results', $event->slug);
 
-    $this->get($url)->assertRedirect(route('login'));
-    $this->actingAs(User::factory()->unverified()->create())->get($url)->assertRedirect(route('verification.notice'));
+    $this->get($url)->assertOk()->assertSee($name)->assertSee('noindex');
     $this->actingAs(resultsStaff())->get($url)->assertOk()->assertSee($name);
 });
 
-it('checks sign-in on the polling component too', function () {
+it('keeps polling for a guest', function () {
     [$event] = scoredEvent();
 
-    Livewire::test(Results::class, ['eventId' => $event->id])->assertForbidden();
+    Livewire::test(Results::class, ['eventId' => $event->id])->assertOk()->call('$refresh')->assertOk();
+});
+
+it('shows a guest competitors and nothing about the staff screens', function () {
+    [$event] = scoredEvent();
+
+    $this->get(route('event.results', $event->slug))->assertOk()->assertDontSee('Arrange Divisions')->assertDontSee('Scoring');
+    $this->get(route('event.scoring', $event->slug))->assertRedirect(route('login'));
 });
 
 it('leaves reopened divisions off the results page', function () {
@@ -420,7 +426,7 @@ it('leaves reopened divisions off the results page', function () {
     $svc = new DivisionResults();
     $svc->reopen($svc->record($version, 0, [$r[0] => 1], resultsStaff()));
 
-    $this->actingAs(resultsStaff())->get(route('event.results', $event->slug))->assertOk()->assertDontSee('Boys Green');
+    $this->get(route('event.results', $event->slug))->assertOk()->assertDontSee('Boys Green');
 });
 
 it('links members to results once there are some', function () {
