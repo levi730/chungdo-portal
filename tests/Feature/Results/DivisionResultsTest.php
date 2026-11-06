@@ -408,6 +408,48 @@ it('shows results to anyone with the link, signed in or not', function () {
     $this->actingAs(resultsStaff())->get($url)->assertOk()->assertSee($name);
 });
 
+it('lists the newest result first, with a tab for the divisions in board order', function () {
+    [$event, $version] = twoScoredDivisions();
+    $older = DivisionResult::where('event_division_version_id', $version->id)->where('position', 1)->firstOrFail();
+    $newer = DivisionResult::where('event_division_version_id', $version->id)->where('position', 0)->firstOrFail();
+    $older->update(['completed_at' => now()->subHour()]);
+    $newer->update(['completed_at' => now()]);
+
+    $page = Livewire::test(Results::class, ['eventId' => $event->id])
+        ->assertSeeInOrder(['Div A', 'Div B'])
+        ->assertSee($newer->completed_at->format('D g:i A'));
+
+    $older->update(['completed_at' => now()->addHour()]);
+
+    $page->call('$refresh')
+        ->assertSeeInOrder(['Div B', 'Div A'])
+        ->set('tab', 'divisions')
+        ->assertSeeInOrder(['Div A', 'Div B']);
+});
+
+it('falls back to latest for a tab it does not know', function () {
+    [$event, $version] = twoScoredDivisions();
+    DivisionResult::where('event_division_version_id', $version->id)->where('position', 1)->update(['completed_at' => now()->addHour()]);
+
+    Livewire::test(Results::class, ['eventId' => $event->id])
+        ->set('tab', 'nonsense')
+        ->assertOk()
+        ->assertSeeInOrder(['Div B', 'Div A']);
+});
+
+it('moves a corrected division back to the top', function () {
+    [$event, $version, $r] = twoScoredDivisions();
+    $svc = new DivisionResults();
+    $correct = DivisionResult::where('event_division_version_id', $version->id)->where('position', 0)->firstOrFail();
+    DivisionResult::where('event_division_version_id', $version->id)->update(['completed_at' => now()->subHour()]);
+    DivisionResult::where('id', $correct->id)->update(['completed_at' => now()->subHours(2)]);
+
+    $svc->reopen($correct->fresh());
+    $svc->record($version, 0, [$r[1] => 1], resultsStaff());
+
+    Livewire::test(Results::class, ['eventId' => $event->id])->assertSeeInOrder(['Div A', 'Div B']);
+});
+
 it('keeps polling for a guest', function () {
     [$event] = scoredEvent();
 

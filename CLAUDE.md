@@ -401,6 +401,10 @@ parent email, Facebook.
   page and the home page card, which show a link once a division is saved. The
   waiver lists television, radio and film, not websites or social media; that
   wording is unresolved.
+- **The results page opens on Latest, newest first by `completed_at`**, so a
+  page left open shows each new result arriving at the top. A correction goes
+  back to the top because saving resets `completed_at`. "By division" is the
+  discipline and board-order view, and `?tab=divisions` links straight to it.
 - **Saving fires `DivisionCompleted`**; reopening fires `DivisionReopened`, and
   losing scoring fires `DivisionCleared`. New outbound channels are more listeners
   on these. They dispatch after commit and carry ids, because a queued listener
