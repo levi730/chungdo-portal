@@ -16,6 +16,9 @@
     <env name="DB_DATABASE" value="laravel"/>
     <env name="MAIL_MAILER" value="array"/>
     <env name="QUEUE_CONNECTION" value="sync"/>
+    <!-- A real channel in .env must never be reached: the sync queue would post every saved division. -->
+    <env name="ZULIP_RESULTS_CHANNEL" value="" force="true"/>
+    <env name="ZULIP_RESULTS_BOT_API_KEY" value="" force="true"/>
     <env name="SESSION_DRIVER" value="array"/>
     <env name="TELESCOPE_ENABLED" value="false"/>
   </php>
