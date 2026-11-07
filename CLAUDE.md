@@ -431,13 +431,14 @@ the public page and Zulip. There is no Facebook posting: decided 2026-11-06.
   at a time, so a running sync delays results by its few seconds. Locally, nothing
   runs the queue: `ddev exec php artisan queue:work --queue=zulip --stop-when-empty`.
 - **A division decided at finals is saved twice.** "1st and 2nd at finals" on the
-  scoring screen saves 3rd and below (or nobody, for a two-person division), and
-  sets `awaiting_finals_at`, leaving `completed_at` null: it is on the results
-  page and in Zulip with 1st and 2nd shown as waiting, but it is not complete, and
-  the scorer can finish it without a reopen. The finalists aren't named. The final
-  save needs a 1st, and is a new Zulip post rather than an edit, so people are
-  notified. `published()` is what the public sees; `completed()` is what is done.
-  For trophies, its 3rd has won and everyone else stays Waiting on a division.
+  scoring screen saves exactly two finalists plus 3rd and below, and sets
+  `awaiting_finals_at`, leaving `completed_at` null: it is on the results page and
+  in Zulip, but it is not complete, and the scorer can finish it without a reopen.
+  **A finalist is a `division_placements` row with a null `place`**, so anything
+  reading `place` must handle that. The final save replaces those rows, needs a
+  1st, and is a new Zulip post rather than an edit, so people are notified.
+  `published()` is what the public sees; `completed()` is what is done. For
+  trophies, finalists and 3rd count as winners and everyone else is settled.
 - A saved division is closed. Reopening needs `event.manage` and takes it off
   the results page until it is saved again.
 - **`event.recordResults`** is held by `event.admin`, the coordinator allowlist

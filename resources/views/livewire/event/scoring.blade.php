@@ -17,7 +17,7 @@
                 Saved. This division is on the results page.
             </div>
         @elseif ($finals)
-            <p class="text-muted">Tap 3rd place. You can type over a number for a tie. 1st and 2nd are saved after finals.</p>
+            <p class="text-muted">Tap the two finalists, then 3rd place. You can type over a number for a tie. 1st and 2nd are saved after finals.</p>
         @elseif ($awaiting)
             <div class="alert alert-info">
                 Waiting on finals. After finals, tap 1st, then 2nd, and save results.
@@ -29,8 +29,9 @@
         <div class="row row-cards">
             @foreach ($members as $member)
                 @php($place = $places[$member->id] ?? null)
+                @php($finalist = ! $place && in_array($member->id, $finalists, true))
                 <div class="col-6 col-md-4 col-lg-3" wire:key="member-{{ $member->id }}">
-                    <div class="card h-100 {{ $place ? 'border-primary bg-primary-lt' : '' }}"
+                    <div class="card h-100 {{ $place || $finalist ? 'border-primary bg-primary-lt' : '' }}"
                          role="button"
                          @unless($closed) wire:click="mark({{ $member->id }})" @endunless>
                         <div class="card-body d-flex justify-content-between align-items-start">
@@ -39,7 +40,9 @@
                                 <div class="text-muted small">{{ $member->user?->school?->shortname }}</div>
                                 <div class="text-muted small">{{ $member->user?->rank?->rank }}</div>
                             </div>
-                            @if ($place)
+                            @if ($finalist)
+                                <span class="badge bg-blue text-white ms-2">Finals</span>
+                            @elseif ($place)
                                 <input type="number" min="1" max="{{ $members->count() }}"
                                        class="form-control form-control-sm text-center ms-2" style="width: 4rem"
                                        aria-label="Place for {{ $member->user?->full_name }}"
@@ -69,7 +72,7 @@
             @else
                 <button type="button" class="btn btn-primary" wire:click="save" wire:loading.attr="disabled">Save results</button>
                 <button type="button" class="btn btn-outline-secondary" wire:click="setFinals(true)">
-                    {{ $awaiting ? 'Change 3rd place' : '1st and 2nd at finals' }}
+                    {{ $awaiting ? 'Change finalists or 3rd' : '1st and 2nd at finals' }}
                 </button>
             @endif
         </div>

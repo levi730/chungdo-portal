@@ -80,7 +80,7 @@ class ResultsChannel
         $lines = $result->placements->map(function (DivisionPlacement $placement) {
             $school = $placement->school ? ' ('.$this->plain($placement->school).')' : '';
 
-            return "**{$placement->place}** ".$this->plain($placement->displayName()).$school;
+            return '**'.($placement->place ?? 'Finals').'** '.$this->plain($placement->displayName()).$school;
         });
 
         if ($result->isAwaitingFinals()) {

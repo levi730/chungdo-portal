@@ -27,9 +27,9 @@ use InvalidArgumentException;
  * A division is scored once and then closed. A correction reopens it, which
  * takes it off the results page until it is saved again.
  *
- * A division decided at finals is saved in two steps: 3rd place and below first,
- * which goes on the results page with 1st and 2nd shown as waiting, and all of it
- * after finals. Until then it is not complete and stays open to the scorer.
+ * A division decided at finals is saved in two steps: its two finalists and 3rd
+ * place and below first, which goes on the results page, and all of it after
+ * finals. Until then it is not complete and stays open to the scorer.
  */
 class DivisionResults
 {
@@ -69,14 +69,17 @@ class DivisionResults
     }
 
     /**
-     * Save a division's places and close it, or with $awaitingFinals, save the
-     * places below 1st and 2nd and leave it open for finals.
+     * Save a division's places and close it, or with $finalists, save who goes
+     * to finals and the places below them, and leave it open.
      *
      * @param  array<int|string, int|string|null>  $places  registration id => place;
      *                                                      blank means unplaced
+     * @param  array<int>|null  $finalists  registration ids, null when not waiting on finals
      */
-    public function record(EventDivisionVersion $version, int $position, array $places, User $by, bool $awaitingFinals = false): DivisionResult
+    public function record(EventDivisionVersion $version, int $position, array $places, User $by, ?array $finalists = null): DivisionResult
     {
+        $awaitingFinals = $finalists !== null;
+
         $places = array_map('intval', array_filter($places, fn ($place) => $place !== null && $place !== ''));
         $members = $this->members($version, $position);
 
@@ -89,16 +92,32 @@ class DivisionResults
             }
         }
 
-        // A two-person division goes straight to finals with nothing to save yet.
         if ($places === [] && ! $awaitingFinals) {
             throw new InvalidArgumentException('Number at least one competitor before saving.');
         }
 
-        if ($awaitingFinals && $places !== [] && min($places) < 3) {
-            throw new InvalidArgumentException('1st and 2nd are saved after finals.');
+        if ($awaitingFinals) {
+            $finalists = array_values(array_unique(array_map('intval', $finalists)));
+
+            if (count($finalists) !== 2) {
+                throw new InvalidArgumentException('Pick the two competitors going to finals.');
+            }
+
+            foreach ($finalists as $regId) {
+                if (! $members->has($regId)) {
+                    throw new InvalidArgumentException('That competitor is not in this division.');
+                }
+                if (isset($places[$regId])) {
+                    throw new InvalidArgumentException('A finalist can\'t also have a place.');
+                }
+            }
+
+            if ($places !== [] && min($places) < 3) {
+                throw new InvalidArgumentException('1st and 2nd are saved after finals.');
+            }
         }
 
-        $result = DB::transaction(function () use ($version, $position, $places, $members, $by, $awaitingFinals) {
+        $result = DB::transaction(function () use ($version, $position, $places, $members, $by, $awaitingFinals, $finalists) {
             // Shares a lock with publishing, and keeps two scorers apart.
             $event = Event::whereKey($version->event_id)->lockForUpdate()->firstOrFail();
 
@@ -138,7 +157,9 @@ class DivisionResults
 
             $result->placements()->delete();
 
-            foreach ($places as $regId => $place) {
+            $placed = $places + array_fill_keys($finalists ?? [], null);
+
+            foreach ($placed as $regId => $place) {
                 $user = $members[$regId]->user;
 
                 $result->placements()->create([

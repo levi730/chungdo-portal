@@ -42,9 +42,15 @@ class DivisionResult extends Model
         return $this->belongsTo(User::class, 'completed_by_user_id');
     }
 
+    /** Nulls sort first in MySQL, so finalists sit above 3rd. */
     public function placements(): HasMany
     {
         return $this->hasMany(DivisionPlacement::class)->orderBy('place')->orderBy('name');
+    }
+
+    public function hasFinalists(): bool
+    {
+        return $this->placements->contains->isFinalist();
     }
 
     public function scopeCompleted(Builder $query): Builder

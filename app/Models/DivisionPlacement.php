@@ -19,6 +19,12 @@ class DivisionPlacement extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** In the top two, with the order decided at finals. */
+    public function isFinalist(): bool
+    {
+        return $this->place === null;
+    }
+
     /**
      * The name to publish. Everything that shows a result goes through here,
      * so how competitors are named on a results page, and later in a Facebook

@@ -275,10 +275,11 @@ it('posts a division waiting on finals, then the final result as a new post', fu
     [, $version, $r] = zulipDivisions();
     $svc = new DivisionResults();
 
-    $result = $svc->record($version, 0, [$r[2] => 3], User::factory()->create(), awaitingFinals: true);
+    $result = $svc->record($version, 0, [$r[2] => 3], User::factory()->create(), [$r[0], $r[1]]);
 
     expect(zulipPosts())->toBe(1);
-    Http::assertSent(fn (Request $q) => str_contains((string) ($q['content'] ?? ''), 'waiting on finals'));
+    Http::assertSent(fn (Request $q) => str_contains((string) ($q['content'] ?? ''), 'waiting on finals')
+        && str_contains((string) ($q['content'] ?? ''), '**Finals** '));
 
     $svc->record($version, 0, [$r[0] => 1, $r[1] => 2, $r[2] => 3], User::factory()->create());
 
@@ -294,8 +295,8 @@ it('edits the post when 3rd is corrected ahead of finals', function () {
     [, $version, $r] = zulipDivisions();
     $svc = new DivisionResults();
 
-    $svc->record($version, 0, [$r[2] => 3], User::factory()->create(), awaitingFinals: true);
-    $svc->record($version, 0, [$r[1] => 3], User::factory()->create(), awaitingFinals: true);
+    $svc->record($version, 0, [$r[2] => 3], User::factory()->create(), [$r[0], $r[1]]);
+    $svc->record($version, 0, [$r[1] => 3], User::factory()->create(), [$r[0], $r[2]]);
 
     expect(zulipPosts())->toBe(1);
     expect(Http::recorded(fn (Request $q) => $q->method() === 'PATCH')->count())->toBe(1);

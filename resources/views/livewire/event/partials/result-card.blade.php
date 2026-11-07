@@ -13,7 +13,7 @@
         @endif
         @foreach ($result->placements as $placement)
             <div class="list-group-item d-flex align-items-center">
-                <span class="badge bg-blue text-white me-3">{{ $placement->place }}</span>
+                <span class="badge bg-blue text-white me-3">{{ $placement->place ?? 'Finals' }}</span>
                 <div>
                     <div>{{ $placement->displayName() }}</div>
                     @if ($placement->school)

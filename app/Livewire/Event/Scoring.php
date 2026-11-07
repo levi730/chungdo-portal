@@ -33,6 +33,9 @@ class Scoring extends Component
     /** Saving will leave 1st and 2nd for finals. */
     public bool $finals = false;
 
+    /** @var array<int, int> registration ids going to finals */
+    public array $finalists = [];
+
     public ?string $error = null;
 
     public function mount(int $eventId): void
@@ -67,10 +70,12 @@ class Scoring extends Component
         $regIds = $members->pluck('id', 'user_id');
 
         foreach ($this->result()?->placements ?? [] as $placement) {
-            if ($regIds->has($placement->user_id)) {
+            if ($regIds->has($placement->user_id) && ! $placement->isFinalist()) {
                 $this->places[$regIds[$placement->user_id]] = $placement->place;
             }
         }
+
+        $this->finalists = $this->savedFinalists();
     }
 
     public function close(): void
@@ -79,10 +84,11 @@ class Scoring extends Component
         $this->position = null;
         $this->places = [];
         $this->finals = false;
+        $this->finalists = [];
         $this->error = null;
     }
 
-    /** Switch to saving 3rd place now and 1st and 2nd after finals. */
+    /** Switch to saving the finalists and 3rd place now, and 1st and 2nd after finals. */
     public function setFinals(bool $finals): void
     {
         $this->authorizeScoring();
@@ -94,9 +100,21 @@ class Scoring extends Component
         $this->finals = $finals;
         $this->error = null;
 
-        if ($finals) {
-            $this->places = array_filter($this->places, fn ($place) => (int) $place >= 3);
+        if (! $finals) {
+            $this->finalists = $this->savedFinalists();
+
+            return;
         }
+
+        // Anyone already tapped 1st or 2nd is who goes to finals.
+        foreach ($this->places as $regId => $place) {
+            if ((int) $place < 3) {
+                $this->finalists[] = (int) $regId;
+                unset($this->places[$regId]);
+            }
+        }
+
+        $this->finalists = array_values(array_unique($this->finalists));
     }
 
     /** Number the next competitor, or take the number back off them. */
@@ -109,6 +127,20 @@ class Scoring extends Component
         }
 
         $this->places = array_filter($this->places, fn ($place) => $place !== '' && $place !== null);
+
+        if ($this->finals) {
+            if (in_array($regId, $this->finalists, true)) {
+                $this->finalists = array_values(array_diff($this->finalists, [$regId]));
+
+                return;
+            }
+
+            if (! isset($this->places[$regId]) && count($this->finalists) < 2) {
+                $this->finalists[] = $regId;
+
+                return;
+            }
+        }
 
         if (! isset($this->places[$regId])) {
             $this->places[$regId] = $this->nextPlace();
@@ -139,7 +171,7 @@ class Scoring extends Component
         $this->authorizeScoring();
 
         try {
-            $results->record($this->version(), $this->position, $this->places, auth()->user(), $this->finals);
+            $results->record($this->version(), $this->position, $this->places, auth()->user(), $this->finals ? $this->finalists : null);
             $this->close();
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
@@ -174,6 +206,19 @@ class Scoring extends Component
                 : collect(),
             'result' => $this->result(),
         ]);
+    }
+
+    /** @return array<int, int> registration ids */
+    private function savedFinalists(): array
+    {
+        $regIds = $this->version() ? app(DivisionResults::class)->members($this->version(), $this->position)->pluck('id', 'user_id') : collect();
+
+        return collect($this->result()?->placements ?? [])
+            ->filter->isFinalist()
+            ->map(fn ($placement) => $regIds[$placement->user_id] ?? null)
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /** The lowest place not yet taken, so a saved 3rd leaves 1 and 2 for the next taps. */

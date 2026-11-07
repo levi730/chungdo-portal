@@ -485,10 +485,10 @@ it('links members to results once there are some', function () {
     $this->actingAs($member)->get(route('event.register', $event->slug))->assertSee($url);
 });
 
-it('saves 3rd ahead of finals, shows it, and leaves the division open', function () {
+it('saves the finalists and 3rd ahead of finals, shows them, and leaves the division open', function () {
     [$event, $version, $r] = scoredEvent();
 
-    $result = (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+    $result = (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), [$r[0], $r[1]]);
 
     expect($result->isCompleted())->toBeFalse();
     expect($result->isAwaitingFinals())->toBeTrue();
@@ -497,19 +497,41 @@ it('saves 3rd ahead of finals, shows it, and leaves the division open', function
     Livewire::test(Results::class, ['eventId' => $event->id])
         ->assertSee('Boys Green')
         ->assertSee('1st and 2nd: waiting on finals')
-        ->assertSee($result->placements()->first()->name);
+        ->assertSeeInOrder([...$result->placements()->pluck('name')->all()])
+        ->assertSee('Finals');
+
+    expect($result->placements()->pluck('place')->all())->toBe([null, null, 3]);
+    expect($result->fresh()->hasFinalists())->toBeTrue();
 });
 
 it('refuses 1st or 2nd ahead of finals', function () {
     [, $version, $r] = scoredEvent();
 
-    (new DivisionResults())->record($version, 0, [$r[0] => 2, $r[2] => 3], resultsStaff(), awaitingFinals: true);
+    (new DivisionResults())->record($version, 0, [$r[3] => 2, $r[2] => 3], resultsStaff(), [$r[0], $r[1]]);
 })->throws(InvalidArgumentException::class, 'after finals');
 
-it('lets a two-person division wait on finals with nothing saved', function () {
-    [$event, $version] = scoredEvent(2);
+it('needs exactly two finalists from the division', function (array $pick) {
+    [, $version, $r] = scoredEvent();
 
-    (new DivisionResults())->record($version, 0, [], resultsStaff(), awaitingFinals: true);
+    (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), array_map(fn ($i) => $i < 0 ? 999999 : $r[$i], $pick));
+})->with([
+    'none' => [[]],
+    'one' => [[0]],
+    'three' => [[0, 1, 3]],
+    'the same one twice' => [[0, 0]],
+    'an outsider' => [[0, -1]],
+])->throws(InvalidArgumentException::class);
+
+it('will not let a finalist also hold a place', function () {
+    [, $version, $r] = scoredEvent();
+
+    (new DivisionResults())->record($version, 0, [$r[1] => 3], resultsStaff(), [$r[0], $r[1]]);
+})->throws(InvalidArgumentException::class, 'also have a place');
+
+it('lets a two-person division go straight to finals', function () {
+    [$event, $version, $r] = scoredEvent(2);
+
+    (new DivisionResults())->record($version, 0, [], resultsStaff(), [$r[0], $r[1]]);
 
     Livewire::test(Results::class, ['eventId' => $event->id])->assertSee('1st and 2nd: waiting on finals');
 });
@@ -521,15 +543,21 @@ it('takes a scorer without event.manage from finals to complete', function () {
     $page = Livewire::actingAs($scorer)->test(Scoring::class, ['eventId' => $event->id])
         ->call('open', $version->id, 0)
         ->call('setFinals', true)
+        ->call('mark', $r[0])
+        ->call('mark', $r[1])
+        ->assertSet('finalists', [$r[0], $r[1]])
         ->call('mark', $r[2])
         ->assertSet("places.{$r[2]}", 3)
-        ->call('save');
+        ->call('save')
+        ->assertSet('error', null);
 
     $result = DivisionResult::where('event_id', $event->id)->sole();
     expect($result->isAwaitingFinals())->toBeTrue();
 
     $page->call('open', $version->id, 0)
         ->assertSet("places.{$r[2]}", 3)
+        ->assertSet('finalists', fn (array $finalists) => collect($finalists)->sort()->values()->all() === [$r[0], $r[1]]) // read back in name order
+        ->assertSee('Finals')
         ->call('mark', $r[0])
         ->assertSet("places.{$r[0]}", 1)
         ->call('mark', $r[1])
@@ -543,9 +571,44 @@ it('takes a scorer without event.manage from finals to complete', function () {
     expect($result->placements()->pluck('place')->all())->toBe([1, 2, 3]);
 });
 
+it('adds finalists to a division saved without them', function () {
+    [$event, $version, $r] = scoredEvent();
+    $result = DivisionResult::create([
+        'event_id' => $event->id, 'event_division_version_id' => $version->id, 'position' => 0,
+        'discipline' => 'sparring', 'division_name' => 'Boys Green', 'awaiting_finals_at' => now(),
+    ]);
+    $result->placements()->create(['user_id' => EventRegistration::find($r[2])->user_id, 'place' => 3, 'name' => 'Third']);
+
+    Livewire::actingAs(resultsStaff('event.recordResults'))->test(Scoring::class, ['eventId' => $event->id])
+        ->call('open', $version->id, 0)
+        ->call('setFinals', true)
+        ->assertSet("places.{$r[2]}", 3)
+        ->call('mark', $r[0])
+        ->call('mark', $r[1])
+        ->call('save')
+        ->assertSet('error', null);
+
+    expect($result->placements()->pluck('place')->all())->toBe([null, null, 3]);
+});
+
+it('turns a tapped 1st and 2nd into the finalists', function () {
+    [$event, $version, $r] = scoredEvent();
+
+    Livewire::actingAs(resultsStaff('event.recordResults'))->test(Scoring::class, ['eventId' => $event->id])
+        ->call('open', $version->id, 0)
+        ->call('mark', $r[0])
+        ->call('mark', $r[1])
+        ->call('mark', $r[2])
+        ->call('setFinals', true)
+        ->assertSet('finalists', [$r[0], $r[1]])
+        ->assertSet('places', [$r[2] => 3])
+        ->call('mark', $r[0])
+        ->assertSet('finalists', [$r[1]]);
+});
+
 it('keeps a saved 3rd in place when a finalist tap is taken back', function () {
     [$event, $version, $r] = scoredEvent();
-    (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+    (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), [$r[0], $r[1]]);
 
     Livewire::actingAs(resultsStaff('event.recordResults'))->test(Scoring::class, ['eventId' => $event->id])
         ->call('open', $version->id, 0)
@@ -557,7 +620,7 @@ it('keeps a saved 3rd in place when a finalist tap is taken back', function () {
 it('will not complete a finals division without a 1st', function () {
     [, $version, $r] = scoredEvent();
     $svc = new DivisionResults();
-    $svc->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+    $svc->record($version, 0, [$r[2] => 3], resultsStaff(), [$r[0], $r[1]]);
 
     $svc->record($version, 0, [$r[2] => 3], resultsStaff());
 })->throws(InvalidArgumentException::class, 'Number 1st and 2nd');
@@ -586,7 +649,7 @@ function twoScoredDivisionsWithFinals(): array
     $svc->publish($event, $version);
 
     $results = new DivisionResults();
-    $results->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+    $results->record($version, 0, [$r[2] => 3], resultsStaff(), [$r[0], $r[1]]);
     DivisionResult::where('division_name', 'Div A')->update(['awaiting_finals_at' => now()->subHour()]);
     $results->record($version, 1, [$r[3] => 1], resultsStaff());
 

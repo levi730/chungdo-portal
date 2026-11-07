@@ -215,18 +215,46 @@ it('gates the list on event.recordResults, route and component', function () {
     $this->actingAs(trophyStaff('event.recordResults'))->get(route('event.trophies', $event->slug))->assertOk()->assertSee('Participation Trophies');
 });
 
-it('takes 3rd as a win ahead of finals and keeps everyone else waiting', function () {
+it('settles a finals division for everyone but the finalists', function () {
     $event = trophyEvent();
     [$a, $b, $third, $d] = array_map(fn () => trophyKid($event, 7), range(1, 4));
     $version = trophyBoard($event, ['Mini' => [$a, $b, $third, $d]]);
     $svc = new DivisionResults();
 
-    $svc->record($version, 0, [$third => 3], User::factory()->create(), awaitingFinals: true);
+    $svc->record($version, 0, [$third => 3], User::factory()->create(), [$a, $b]);
 
-    expect(trophyList($event, 'waiting'))->toBe([$a, $b, $d]);
-    expect(trophyList($event))->toBe([]);
+    expect(trophyList($event))->toBe([$d]);
+    expect(trophyList($event, 'waiting'))->toBe([]);
 
     $svc->record($version, 0, [$a => 1, $b => 2, $third => 3], User::factory()->create());
 
     expect(trophyList($event))->toBe([$d]);
+});
+
+it('keeps everyone waiting on a finals division saved without finalists', function () {
+    $event = trophyEvent();
+    [$third, $d] = [trophyKid($event, 7), trophyKid($event, 7)];
+    $version = trophyBoard($event, ['Mini' => [$third, $d, trophyKid($event, 7)]]);
+    $result = DivisionResult::create([
+        'event_id' => $event->id, 'event_division_version_id' => $version->id, 'position' => 0,
+        'discipline' => 'sparring', 'division_name' => 'Mini', 'awaiting_finals_at' => now(),
+    ]);
+    $result->placements()->create(['user_id' => EventRegistration::find($third)->user_id, 'place' => 3, 'name' => 'Third']);
+
+    expect(trophyList($event))->toBe([]);
+    expect(trophyList($event, 'waiting'))->not->toContain($third)->toContain($d);
+});
+
+it('owes the runner-up a trophy after finals when only 1st wins', function () {
+    $event = trophyEvent();
+    $event->update(['winning_places' => 1]);
+    [$a, $b] = [trophyKid($event, 7), trophyKid($event, 7)];
+    $version = trophyBoard($event, ['Mini' => [$a, $b]]);
+    $svc = new DivisionResults();
+
+    $svc->record($version, 0, [], User::factory()->create(), [$a, $b]);
+    expect(trophyList($event))->toBe([]);
+
+    $svc->record($version, 0, [$a => 1, $b => 2], User::factory()->create());
+    expect(trophyList($event->fresh()))->toBe([$b]);
 });

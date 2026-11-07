@@ -43,10 +43,13 @@ class ParticipationTrophies
         $entries = $this->entries($event);
         $published = DivisionResult::published()->with('placements')->where('event_id', $event->id)->get();
 
-        // A division waiting on finals still counts as unsaved, but its 3rd has won.
-        $saved = $published->filter->isCompleted()->mapWithKeys(fn (DivisionResult $r) => ["{$r->event_division_version_id}:{$r->position}" => true]);
+        // Naming the finalists settles a division for everyone else. One waiting on
+        // finals without them, saved before finalists existed, is still unsaved.
+        $saved = $published->filter(fn (DivisionResult $r) => $r->isCompleted() || $r->hasFinalists())->mapWithKeys(fn (DivisionResult $r) => ["{$r->event_division_version_id}:{$r->position}" => true]);
         $winners = $published->flatMap->placements
-            ->where('place', '<=', $event->winning_places)
+            // A finalist is in the top two. With one winning place the runner-up
+            // comes onto the list once finals are saved.
+            ->filter(fn ($placement) => $placement->isFinalist() || $placement->place <= $event->winning_places)
             ->pluck('user_id', 'user_id');
         $given = ParticipationTrophy::where('event_id', $event->id)->pluck('event_registration_id')->flip();
 
