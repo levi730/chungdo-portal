@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Events\DivisionAwaitingFinals;
 use App\Events\DivisionCleared;
 use App\Events\DivisionCompleted;
 use App\Events\DivisionReopened;
@@ -61,7 +62,7 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrapFive();
 
         Events::listen(
-            [DivisionCompleted::class, DivisionReopened::class, DivisionCleared::class],
+            [DivisionCompleted::class, DivisionAwaitingFinals::class, DivisionReopened::class, DivisionCleared::class],
             PostResultToZulip::class,
         );
 

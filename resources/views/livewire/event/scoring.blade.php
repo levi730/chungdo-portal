@@ -10,10 +10,17 @@
         @endif
 
         @php($closed = $result?->isCompleted())
+        @php($awaiting = $result?->isAwaitingFinals())
 
         @if ($closed)
             <div class="alert alert-success">
                 Saved. This division is on the results page.
+            </div>
+        @elseif ($finals)
+            <p class="text-muted">Tap 3rd place. You can type over a number for a tie. 1st and 2nd are saved after finals.</p>
+        @elseif ($awaiting)
+            <div class="alert alert-info">
+                Waiting on finals. After finals, tap 1st, then 2nd, and save results.
             </div>
         @else
             <p class="text-muted">Tap competitors in finishing order. You can type over a number, so a 4 can become a tied 3.</p>
@@ -56,8 +63,14 @@
                 @else
                     <span class="text-muted">An event admin can reopen this division if it needs correcting.</span>
                 @endcan
+            @elseif ($finals)
+                <button type="button" class="btn btn-primary" wire:click="save" wire:loading.attr="disabled">Save until finals</button>
+                <button type="button" class="btn btn-link" wire:click="setFinals(false)">Cancel</button>
             @else
                 <button type="button" class="btn btn-primary" wire:click="save" wire:loading.attr="disabled">Save results</button>
+                <button type="button" class="btn btn-outline-secondary" wire:click="setFinals(true)">
+                    {{ $awaiting ? 'Change 3rd place' : '1st and 2nd at finals' }}
+                </button>
             @endif
         </div>
     @else
@@ -73,6 +86,8 @@
                                 <span>{{ $item['label'] ?? '' }}</span>
                                 @if ($itemResult?->isCompleted())
                                     <span class="badge bg-green text-white">Done</span>
+                                @elseif ($itemResult?->isAwaitingFinals())
+                                    <span class="badge bg-blue text-white">Waiting on finals</span>
                                 @elseif ($itemResult)
                                     <span class="badge bg-yellow text-white">Reopened</span>
                                 @endif

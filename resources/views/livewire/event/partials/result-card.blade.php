@@ -3,11 +3,14 @@
         <div>
             <h3 class="card-title">{{ $result->division_name }}</h3>
             <div class="text-muted small">
-                @if ($discipline){{ ucfirst($discipline) }} &middot; @endif{{ $result->completed_at->format('D g:i A') }}
+                @if ($discipline){{ ucfirst($discipline) }} &middot; @endif{{ $result->publishedAt()->format('D g:i A') }}
             </div>
         </div>
     </div>
     <div class="list-group list-group-flush">
+        @if ($result->isAwaitingFinals())
+            <div class="list-group-item text-muted">1st and 2nd: waiting on finals</div>
+        @endif
         @foreach ($result->placements as $placement)
             <div class="list-group-item d-flex align-items-center">
                 <span class="badge bg-blue text-white me-3">{{ $placement->place }}</span>

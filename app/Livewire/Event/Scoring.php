@@ -30,6 +30,9 @@ class Scoring extends Component
     /** @var array<int|string, int|string> registration id => place */
     public array $places = [];
 
+    /** Saving will leave 1st and 2nd for finals. */
+    public bool $finals = false;
+
     public ?string $error = null;
 
     public function mount(int $eventId): void
@@ -59,6 +62,7 @@ class Scoring extends Component
         $this->position = $position;
         $this->error = null;
         $this->places = [];
+        $this->finals = false;
 
         $regIds = $members->pluck('id', 'user_id');
 
@@ -74,7 +78,25 @@ class Scoring extends Component
         $this->versionId = null;
         $this->position = null;
         $this->places = [];
+        $this->finals = false;
         $this->error = null;
+    }
+
+    /** Switch to saving 3rd place now and 1st and 2nd after finals. */
+    public function setFinals(bool $finals): void
+    {
+        $this->authorizeScoring();
+
+        if ($this->result()?->isCompleted()) {
+            return;
+        }
+
+        $this->finals = $finals;
+        $this->error = null;
+
+        if ($finals) {
+            $this->places = array_filter($this->places, fn ($place) => (int) $place >= 3);
+        }
     }
 
     /** Number the next competitor, or take the number back off them. */
@@ -89,13 +111,18 @@ class Scoring extends Component
         $this->places = array_filter($this->places, fn ($place) => $place !== '' && $place !== null);
 
         if (! isset($this->places[$regId])) {
-            $this->places[$regId] = $this->places === [] ? 1 : max(array_map('intval', $this->places)) + 1;
+            $this->places[$regId] = $this->nextPlace();
 
             return;
         }
 
         $removed = (int) $this->places[$regId];
         unset($this->places[$regId]);
+
+        // A 3rd saved ahead of finals keeps its number while 1st and 2nd go in.
+        if ($this->finals || $this->result()?->isAwaitingFinals()) {
+            return;
+        }
 
         // Close the gap, unless someone else is tied on that place.
         if (! in_array($removed, array_map('intval', $this->places), true)) {
@@ -112,7 +139,7 @@ class Scoring extends Component
         $this->authorizeScoring();
 
         try {
-            $results->record($this->version(), $this->position, $this->places, auth()->user());
+            $results->record($this->version(), $this->position, $this->places, auth()->user(), $this->finals);
             $this->close();
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
@@ -147,6 +174,19 @@ class Scoring extends Component
                 : collect(),
             'result' => $this->result(),
         ]);
+    }
+
+    /** The lowest place not yet taken, so a saved 3rd leaves 1 and 2 for the next taps. */
+    private function nextPlace(): int
+    {
+        $taken = array_map('intval', $this->places);
+        $place = $this->finals ? 3 : 1;
+
+        while (in_array($place, $taken, true)) {
+            $place++;
+        }
+
+        return $place;
     }
 
     private function version(): ?EventDivisionVersion

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\DivisionAwaitingFinals;
 use App\Events\DivisionCleared;
 use App\Events\DivisionCompleted;
 use App\Events\DivisionReopened;
@@ -25,6 +26,10 @@ use InvalidArgumentException;
  *
  * A division is scored once and then closed. A correction reopens it, which
  * takes it off the results page until it is saved again.
+ *
+ * A division decided at finals is saved in two steps: 3rd place and below first,
+ * which goes on the results page with 1st and 2nd shown as waiting, and all of it
+ * after finals. Until then it is not complete and stays open to the scorer.
  */
 class DivisionResults
 {
@@ -64,12 +69,13 @@ class DivisionResults
     }
 
     /**
-     * Save a division's places and close it.
+     * Save a division's places and close it, or with $awaitingFinals, save the
+     * places below 1st and 2nd and leave it open for finals.
      *
      * @param  array<int|string, int|string|null>  $places  registration id => place;
      *                                                      blank means unplaced
      */
-    public function record(EventDivisionVersion $version, int $position, array $places, User $by): DivisionResult
+    public function record(EventDivisionVersion $version, int $position, array $places, User $by, bool $awaitingFinals = false): DivisionResult
     {
         $places = array_map('intval', array_filter($places, fn ($place) => $place !== null && $place !== ''));
         $members = $this->members($version, $position);
@@ -83,11 +89,16 @@ class DivisionResults
             }
         }
 
-        if ($places === []) {
+        // A two-person division goes straight to finals with nothing to save yet.
+        if ($places === [] && ! $awaitingFinals) {
             throw new InvalidArgumentException('Number at least one competitor before saving.');
         }
 
-        $result = DB::transaction(function () use ($version, $position, $places, $members, $by) {
+        if ($awaitingFinals && $places !== [] && min($places) < 3) {
+            throw new InvalidArgumentException('1st and 2nd are saved after finals.');
+        }
+
+        $result = DB::transaction(function () use ($version, $position, $places, $members, $by, $awaitingFinals) {
             // Shares a lock with publishing, and keeps two scorers apart.
             $event = Event::whereKey($version->event_id)->lockForUpdate()->firstOrFail();
 
@@ -103,12 +114,25 @@ class DivisionResults
                 throw new InvalidArgumentException('This division is already closed. Reopen it to make a correction.');
             }
 
+            $finalsDecided = ! $awaitingFinals && $result?->isAwaitingFinals();
+
+            if ($finalsDecided && ! in_array(1, $places, true)) {
+                throw new InvalidArgumentException('Number 1st and 2nd before saving.');
+            }
+
+            // The post before finals stands as it was. Forgetting it makes the
+            // final result a post of its own, which notifies people; an edit wouldn't.
+            if ($finalsDecided) {
+                $result->zulip_message_id = null;
+            }
+
             $result ??= new DivisionResult(['event_division_version_id' => $version->id, 'position' => $position]);
             $result->fill([
                 'event_id' => $version->event_id,
                 'discipline' => $version->discipline,
                 'division_name' => (string) ($version->data[$position]['label'] ?? ''),
-                'completed_at' => now(),
+                'completed_at' => $awaitingFinals ? null : now(),
+                'awaiting_finals_at' => $awaitingFinals ? now() : null,
                 'completed_by_user_id' => $by->id,
             ])->save();
 
@@ -129,7 +153,7 @@ class DivisionResults
             return $result;
         });
 
-        DivisionCompleted::dispatch($result->id);
+        $awaitingFinals ? DivisionAwaitingFinals::dispatch($result->id) : DivisionCompleted::dispatch($result->id);
 
         return $result;
     }

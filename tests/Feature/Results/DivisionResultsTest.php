@@ -484,3 +484,111 @@ it('links members to results once there are some', function () {
     expect($event->fresh()->hasResults())->toBeTrue();
     $this->actingAs($member)->get(route('event.register', $event->slug))->assertSee($url);
 });
+
+it('saves 3rd ahead of finals, shows it, and leaves the division open', function () {
+    [$event, $version, $r] = scoredEvent();
+
+    $result = (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+
+    expect($result->isCompleted())->toBeFalse();
+    expect($result->isAwaitingFinals())->toBeTrue();
+    expect($event->hasResults())->toBeTrue();
+
+    Livewire::test(Results::class, ['eventId' => $event->id])
+        ->assertSee('Boys Green')
+        ->assertSee('1st and 2nd: waiting on finals')
+        ->assertSee($result->placements()->first()->name);
+});
+
+it('refuses 1st or 2nd ahead of finals', function () {
+    [, $version, $r] = scoredEvent();
+
+    (new DivisionResults())->record($version, 0, [$r[0] => 2, $r[2] => 3], resultsStaff(), awaitingFinals: true);
+})->throws(InvalidArgumentException::class, 'after finals');
+
+it('lets a two-person division wait on finals with nothing saved', function () {
+    [$event, $version] = scoredEvent(2);
+
+    (new DivisionResults())->record($version, 0, [], resultsStaff(), awaitingFinals: true);
+
+    Livewire::test(Results::class, ['eventId' => $event->id])->assertSee('1st and 2nd: waiting on finals');
+});
+
+it('takes a scorer without event.manage from finals to complete', function () {
+    [$event, $version, $r] = scoredEvent();
+    $scorer = resultsStaff('event.recordResults');
+
+    $page = Livewire::actingAs($scorer)->test(Scoring::class, ['eventId' => $event->id])
+        ->call('open', $version->id, 0)
+        ->call('setFinals', true)
+        ->call('mark', $r[2])
+        ->assertSet("places.{$r[2]}", 3)
+        ->call('save');
+
+    $result = DivisionResult::where('event_id', $event->id)->sole();
+    expect($result->isAwaitingFinals())->toBeTrue();
+
+    $page->call('open', $version->id, 0)
+        ->assertSet("places.{$r[2]}", 3)
+        ->call('mark', $r[0])
+        ->assertSet("places.{$r[0]}", 1)
+        ->call('mark', $r[1])
+        ->assertSet("places.{$r[1]}", 2)
+        ->call('save')
+        ->assertSet('error', null);
+
+    $result->refresh();
+    expect($result->isCompleted())->toBeTrue();
+    expect($result->isAwaitingFinals())->toBeFalse();
+    expect($result->placements()->pluck('place')->all())->toBe([1, 2, 3]);
+});
+
+it('keeps a saved 3rd in place when a finalist tap is taken back', function () {
+    [$event, $version, $r] = scoredEvent();
+    (new DivisionResults())->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+
+    Livewire::actingAs(resultsStaff('event.recordResults'))->test(Scoring::class, ['eventId' => $event->id])
+        ->call('open', $version->id, 0)
+        ->call('mark', $r[0])
+        ->call('mark', $r[0])
+        ->assertSet("places.{$r[2]}", 3);
+});
+
+it('will not complete a finals division without a 1st', function () {
+    [, $version, $r] = scoredEvent();
+    $svc = new DivisionResults();
+    $svc->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+
+    $svc->record($version, 0, [$r[2] => 3], resultsStaff());
+})->throws(InvalidArgumentException::class, 'Number 1st and 2nd');
+
+it('moves a finals result back to the top of Latest when finals are saved', function () {
+    [$event, $version, $r] = twoScoredDivisionsWithFinals();
+
+    Livewire::test(Results::class, ['eventId' => $event->id])->assertSeeInOrder(['Div B', 'Div A']);
+
+    DivisionResult::where('division_name', 'Div A')->update(['awaiting_finals_at' => now()->subHour()]);
+    DivisionResult::where('division_name', 'Div B')->update(['completed_at' => now()->subMinutes(30)]);
+    (new DivisionResults())->record($version, 0, [$r[0] => 1, $r[1] => 2, $r[2] => 3], resultsStaff());
+
+    Livewire::test(Results::class, ['eventId' => $event->id])->assertSeeInOrder(['Div A', 'Div B']);
+});
+
+/** @return array{0: Event, 1: EventDivisionVersion, 2: array<int>} Div A waits on finals, Div B saved after it */
+function twoScoredDivisionsWithFinals(): array
+{
+    [$event, , $r] = scoredEvent(6);
+    $svc = new EventDivisionService();
+    $version = EventDivisionVersion::find($svc->save($event, [
+        ['id' => null, 'label' => 'Div A', 'members' => [$r[0], $r[1], $r[2]]],
+        ['id' => null, 'label' => 'Div B', 'members' => [$r[3], $r[4], $r[5]]],
+    ]));
+    $svc->publish($event, $version);
+
+    $results = new DivisionResults();
+    $results->record($version, 0, [$r[2] => 3], resultsStaff(), awaitingFinals: true);
+    DivisionResult::where('division_name', 'Div A')->update(['awaiting_finals_at' => now()->subHour()]);
+    $results->record($version, 1, [$r[3] => 1], resultsStaff());
+
+    return [$event, $version, $r];
+}

@@ -33,14 +33,14 @@ class Results extends Component
         $event = Event::findOrFail($this->eventId);
         $byDivision = $this->tab === 'divisions';
 
-        $results = DivisionResult::completed()
+        $results = DivisionResult::published()
             ->with('placements')
             ->where('event_id', $event->id);
 
         return view('livewire.event.results', [
             'results' => $byDivision
                 ? $results->orderBy('position')->get()
-                : $results->orderByDesc('completed_at')->orderByDesc('id')->get(),
+                : $results->newestFirst()->get(),
             'byDivision' => $byDivision,
             'combined' => $event->hasForms() && $event->hasSparring(),
         ]);

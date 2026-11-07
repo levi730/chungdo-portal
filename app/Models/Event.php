@@ -186,7 +186,7 @@ class Event extends Model implements ChargedToStripeAccount, HasMedia
     /** Whether there is anything to show on the results page yet. */
     public function hasResults(): bool
     {
-        return $this->divisionResults()->completed()->exists();
+        return $this->divisionResults()->published()->exists();
     }
 
     public function publishedDivisionVersion(): \Illuminate\Database\Eloquent\Relations\BelongsTo

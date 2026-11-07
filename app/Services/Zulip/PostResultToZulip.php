@@ -2,6 +2,7 @@
 
 namespace App\Services\Zulip;
 
+use App\Events\DivisionAwaitingFinals;
 use App\Events\DivisionCleared;
 use App\Events\DivisionCompleted;
 use App\Events\DivisionReopened;
@@ -35,7 +36,7 @@ class PostResultToZulip implements ShouldQueue
         return 'zulip';
     }
 
-    public function shouldQueue(DivisionCompleted|DivisionReopened|DivisionCleared $event): bool
+    public function shouldQueue(DivisionCompleted|DivisionAwaitingFinals|DivisionReopened|DivisionCleared $event): bool
     {
         if (! $this->channel->enabled()) {
             return false;
@@ -44,7 +45,7 @@ class PostResultToZulip implements ShouldQueue
         return ! $event instanceof DivisionCleared || $event->zulipMessageId !== null;
     }
 
-    public function handle(DivisionCompleted|DivisionReopened|DivisionCleared $event): void
+    public function handle(DivisionCompleted|DivisionAwaitingFinals|DivisionReopened|DivisionCleared $event): void
     {
         if ($event instanceof DivisionCleared) {
             $this->channel->cleared(Event::findOrFail($event->eventId), $event->discipline, $event->divisionName, $event->zulipMessageId);
@@ -56,12 +57,14 @@ class PostResultToZulip implements ShouldQueue
 
         if ($event instanceof DivisionCompleted && $result?->isCompleted()) {
             $this->channel->completed($result);
+        } elseif ($event instanceof DivisionAwaitingFinals && $result?->isAwaitingFinals()) {
+            $this->channel->completed($result);
         } elseif ($event instanceof DivisionReopened && $result && ! $result->isCompleted()) {
             $this->channel->reopened($result);
         }
     }
 
-    public function failed(DivisionCompleted|DivisionReopened|DivisionCleared $event, Throwable $e): void
+    public function failed(DivisionCompleted|DivisionAwaitingFinals|DivisionReopened|DivisionCleared $event, Throwable $e): void
     {
         Log::error('Tournament results did not reach Zulip.', ['event' => $event::class, 'error' => $e->getMessage()]);
     }

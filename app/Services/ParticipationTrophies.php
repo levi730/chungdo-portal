@@ -41,10 +41,11 @@ class ParticipationTrophies
     public function build(Event $event): array
     {
         $entries = $this->entries($event);
-        $completed = DivisionResult::completed()->with('placements')->where('event_id', $event->id)->get();
+        $published = DivisionResult::published()->with('placements')->where('event_id', $event->id)->get();
 
-        $saved = $completed->mapWithKeys(fn (DivisionResult $r) => ["{$r->event_division_version_id}:{$r->position}" => true]);
-        $winners = $completed->flatMap->placements
+        // A division waiting on finals still counts as unsaved, but its 3rd has won.
+        $saved = $published->filter->isCompleted()->mapWithKeys(fn (DivisionResult $r) => ["{$r->event_division_version_id}:{$r->position}" => true]);
+        $winners = $published->flatMap->placements
             ->where('place', '<=', $event->winning_places)
             ->pluck('user_id', 'user_id');
         $given = ParticipationTrophy::where('event_id', $event->id)->pluck('event_registration_id')->flip();

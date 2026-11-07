@@ -214,3 +214,19 @@ it('gates the list on event.recordResults, route and component', function () {
     Livewire::actingAs(trophyStaff())->test(TrophyPage::class, ['eventId' => $event->id])->assertForbidden();
     $this->actingAs(trophyStaff('event.recordResults'))->get(route('event.trophies', $event->slug))->assertOk()->assertSee('Participation Trophies');
 });
+
+it('takes 3rd as a win ahead of finals and keeps everyone else waiting', function () {
+    $event = trophyEvent();
+    [$a, $b, $third, $d] = array_map(fn () => trophyKid($event, 7), range(1, 4));
+    $version = trophyBoard($event, ['Mini' => [$a, $b, $third, $d]]);
+    $svc = new DivisionResults();
+
+    $svc->record($version, 0, [$third => 3], User::factory()->create(), awaitingFinals: true);
+
+    expect(trophyList($event, 'waiting'))->toBe([$a, $b, $d]);
+    expect(trophyList($event))->toBe([]);
+
+    $svc->record($version, 0, [$a => 1, $b => 2, $third => 3], User::factory()->create());
+
+    expect(trophyList($event))->toBe([$d]);
+});

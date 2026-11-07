@@ -83,6 +83,10 @@ class ResultsChannel
             return "**{$placement->place}** ".$this->plain($placement->displayName()).$school;
         });
 
+        if ($result->isAwaitingFinals()) {
+            $lines->prepend('_1st and 2nd: waiting on finals_');
+        }
+
         return $this->heading($result->division_name)."\n\n".$lines->implode("\n")
             ."\n\n[All results](".route('event.results', $result->event->slug).')';
     }
