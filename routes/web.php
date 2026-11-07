@@ -230,6 +230,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/event/{slug}/scoring', [\App\Http\Controllers\EventResultsController::class, 'scoring'])
         ->middleware('can:event.recordResults')
         ->name('event.scoring');
+    Route::get('/event/{slug}/trophies', [\App\Http\Controllers\EventResultsController::class, 'trophies'])
+        ->middleware('can:event.recordResults')
+        ->name('event.trophies');
 
     // Day-of check-in. The Livewire components behind these pages repeat the
     // check in mount() and on the write, since component actions arrive on

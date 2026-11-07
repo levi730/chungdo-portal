@@ -15,4 +15,9 @@ class EventResultsController extends Controller
     {
         return view('event.scoring', ['event' => Event::where('slug', $slug)->firstOrFail()]);
     }
+
+    public function trophies(string $slug)
+    {
+        return view('event.trophies', ['event' => Event::where('slug', $slug)->firstOrFail()]);
+    }
 }

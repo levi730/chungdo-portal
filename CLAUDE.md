@@ -435,6 +435,26 @@ the public page and Zulip. There is no Facebook posting: decided 2026-11-06.
   and a one-permission `event.scorer` role. The Scoring link is in the admin
   subnav.
 
+## Participation trophies
+
+`/event/{slug}/trophies` (`App\Livewire\Event\ParticipationTrophies`) lists the
+Mini Pee Wees and Pee Wees owed a participation trophy, for the trophy table to
+print and tick off. It is gated on `event.recordResults`, the same as scoring.
+
+- **Nothing is entered by hand.** `App\Services\ParticipationTrophies` reads the
+  published divisions and the saved results, so a correction to a division
+  corrects the list. Only `participation_trophies` is stored, and a row means
+  the trophy was handed over.
+- **A win is a place from 1 to 4** in either discipline. Numbering a whole
+  division does not make everyone a winner, so 5th still gets a trophy.
+- **Age is from the birth date at the event's date**: 8 and under is Mini Pee Wee,
+  9 to 11 is Pee Wee. Division names can't be used, since boards are relabelled and
+  mix ages. This is not the board's rule, which uses `User::age` as of today.
+- A child only reaches the list once checked in and with every division saved.
+  Until then they show under Not checked in or Waiting on a division, and a child
+  with no birth date gets a warning because they can't be sorted by age.
+- Deploying needs `php artisan migrate` and `route:cache`.
+
 ## Testing
 
 Pest, `tests/Feature` uses `DatabaseTransactions` against MySQL (`phpunit.xml`).
