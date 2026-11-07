@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Services\AwardsSheet;
 
 class EventResultsController extends Controller
 {
@@ -19,5 +20,12 @@ class EventResultsController extends Controller
     public function trophies(string $slug)
     {
         return view('event.trophies', ['event' => Event::where('slug', $slug)->firstOrFail()]);
+    }
+
+    public function awards(string $slug, AwardsSheet $sheet)
+    {
+        $event = Event::where('slug', $slug)->firstOrFail();
+
+        return view('event.awards', ['event' => $event, ...$sheet->build($event)]);
     }
 }

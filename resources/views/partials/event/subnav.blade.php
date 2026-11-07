@@ -82,6 +82,9 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.trophies', $event->slug) }}">Trophies</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('event.awards', $event->slug) }}">Awards</a>
+                        </li>
                     @endcan
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>

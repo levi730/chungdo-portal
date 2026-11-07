@@ -465,6 +465,19 @@ print and tick off. It is gated on `event.recordResults`, the same as scoring.
 - A child only reaches the list once checked in and with every division saved.
   Until then they show under Not checked in or Waiting on a division, and a child
   with no birth date gets a warning because they can't be sorted by age.
+## Awards sheet
+
+`/event/{slug}/awards` (`App\Services\AwardsSheet`) is the printable sheet for
+announcing results and presenting awards: 1st place per forms division, each
+sparring division's places up to the event's `winning_places`, and the
+participation trophies. It is a plain page with no polling, stamped with the time
+it was loaded, and gated on `event.recordResults`.
+
+- Divisions come from the published versions, so one not saved yet is listed at
+  the top rather than silently missing. Forms winners with no 1st count as unsaved.
+- A sparring division waiting on finals shows its finalists and 3rd.
+- Names go through `displayName()`, the same as the results page.
+
 ## Testing
 
 Pest, `tests/Feature` uses `DatabaseTransactions` against MySQL (`phpunit.xml`).
