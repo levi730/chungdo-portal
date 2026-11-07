@@ -1,7 +1,7 @@
 <div wire:poll.30s class="container-xl">
     <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
         <p class="text-muted mb-0">
-            Mini Pee Wees and Pee Wees who competed and did not place 1st to 4th in forms or sparring.
+            Mini Pee Wees and Pee Wees who competed and did not place in the top {{ $winningPlaces }} in forms or sparring.
         </p>
         <button type="button" class="btn no-print" onclick="window.print()">Print</button>
     </div>

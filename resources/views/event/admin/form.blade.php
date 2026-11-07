@@ -133,6 +133,14 @@
                         <label class="form-label">Map embed URL <span class="text-muted">(Google Maps iframe src)</span></label>
                         <input type="text" name="map_url" class="form-control" value="{{ old('map_url', $event->map_url) }}">
                     </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label required">Winning places</label>
+                            <input type="number" name="winning_places" class="form-control" min="1" max="20" required
+                                   value="{{ old('winning_places', $event->winning_places) }}">
+                            <small class="form-hint">3 means 1st to 3rd count as a win. Pee Wees who don't reach these places get a participation trophy. Scoring is not affected.</small>
+                        </div>
+                    </div>
                     <label class="form-check">
                         <input type="hidden" name="require_ticket" value="0">
                         <input type="checkbox" name="require_ticket" value="1" class="form-check-input" @checked(old('require_ticket', $event->require_ticket))>

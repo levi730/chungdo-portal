@@ -35,6 +35,7 @@ class EventRequest extends FormRequest
             'require_ticket' => 'boolean',
             'highlighted' => 'boolean',
             'highlight_order' => 'nullable|integer|min:0|max:65535',
+            'winning_places' => 'sometimes|required|integer|min:1|max:20',
             'forms.*' => 'nullable|file|mimes:pdf|max:20480',
             'slideshow.*' => 'nullable|file|image|max:20480',
         ];

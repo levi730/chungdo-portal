@@ -46,7 +46,12 @@ class ParticipationTrophies extends Component
 
     public function render(TrophyList $trophies)
     {
-        return view('livewire.event.participation-trophies', $trophies->build(Event::findOrFail($this->eventId)));
+        $event = Event::findOrFail($this->eventId);
+
+        return view('livewire.event.participation-trophies', [
+            ...$trophies->build($event),
+            'winningPlaces' => $event->winning_places,
+        ]);
     }
 
     private function authorizeList(): void

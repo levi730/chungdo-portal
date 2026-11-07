@@ -67,24 +67,46 @@ function trophyStaff(string ...$permissions): User
     return $user;
 }
 
-it('owes a trophy to a child who did not place in the top four', function () {
+it('owes a trophy to a child who did not place in the top three by default', function () {
     $event = trophyEvent();
-    $kids = array_map(fn () => trophyKid($event, 7), range(1, 6));
+    $kids = array_map(fn () => trophyKid($event, 7), range(1, 5));
     $version = trophyBoard($event, ['Mini' => $kids]);
 
-    (new DivisionResults())->record($version, 0, [$kids[0] => 1, $kids[1] => 2, $kids[2] => 3, $kids[3] => 4, $kids[4] => 5], User::factory()->create());
+    (new DivisionResults())->record($version, 0, [$kids[0] => 1, $kids[1] => 2, $kids[2] => 3, $kids[3] => 4], User::factory()->create());
 
-    expect(trophyList($event))->toBe([$kids[4], $kids[5]]);
+    expect(trophyList($event))->toBe([$kids[3], $kids[4]]);
 });
 
-it('counts a tied 4th as a win', function () {
+it('goes by the winning places set on the event', function () {
     $event = trophyEvent();
-    $kids = array_map(fn () => trophyKid($event, 10), range(1, 6));
+    $event->update(['winning_places' => 4]);
+    $kids = array_map(fn () => trophyKid($event, 7), range(1, 5));
+    $version = trophyBoard($event, ['Mini' => $kids]);
+
+    (new DivisionResults())->record($version, 0, [$kids[0] => 1, $kids[1] => 2, $kids[2] => 3, $kids[3] => 4], User::factory()->create());
+
+    expect(trophyList($event))->toBe([$kids[4]]);
+
+    $event->update(['winning_places' => 1]);
+    expect(trophyList($event->fresh()))->toBe([$kids[1], $kids[2], $kids[3], $kids[4]]);
+});
+
+it('states the winning places on the page', function () {
+    $event = trophyEvent();
+    $event->update(['winning_places' => 5]);
+
+    Livewire::actingAs(trophyStaff('event.recordResults'))->test(TrophyPage::class, ['eventId' => $event->id])
+        ->assertSee('did not place in the top 5');
+});
+
+it('counts a tied last winning place as a win', function () {
+    $event = trophyEvent();
+    $kids = array_map(fn () => trophyKid($event, 10), range(1, 5));
     $version = trophyBoard($event, ['Pee Wee' => $kids]);
 
-    (new DivisionResults())->record($version, 0, [$kids[0] => 1, $kids[1] => 2, $kids[2] => 3, $kids[3] => 4, $kids[4] => 4], User::factory()->create());
+    (new DivisionResults())->record($version, 0, [$kids[0] => 1, $kids[1] => 2, $kids[2] => 3, $kids[3] => 3], User::factory()->create());
 
-    expect(trophyList($event))->toBe([$kids[5]]);
+    expect(trophyList($event))->toBe([$kids[4]]);
 });
 
 it('leaves off a child who won in the other discipline', function () {

@@ -53,6 +53,25 @@ it('updates an event', function () {
     expect($event->fresh()->name)->toBe('New Name');
 });
 
+it('saves the winning places and refuses anything below one', function () {
+    $user = eventManager();
+    $event = Event::create(['name' => 'Places', 'slug' => 'places', 'cost' => 0]);
+    expect($event->fresh()->winning_places)->toBe(3);
+
+    $this->actingAs($user)->get(route('events.edit', $event))->assertOk()->assertSee('name="winning_places"', false);
+    $this->actingAs($user)->get(route('events.create'))->assertOk()->assertSee('value="3"', false);
+
+    $this->actingAs($user)->put(route('events.update', $event), [
+        'name' => 'Places', 'slug' => 'places', 'winning_places' => '4',
+    ])->assertSessionHasNoErrors();
+    expect($event->fresh()->winning_places)->toBe(4);
+
+    $this->actingAs($user)->put(route('events.update', $event), [
+        'name' => 'Places', 'slug' => 'places', 'winning_places' => '0',
+    ])->assertSessionHasErrors('winning_places');
+    expect($event->fresh()->winning_places)->toBe(4);
+});
+
 it('archives (soft-deletes) and restores an event', function () {
     $user = eventManager();
     $event = Event::create(['name' => 'Archive Me', 'slug' => 'archive-me', 'cost' => 0]);

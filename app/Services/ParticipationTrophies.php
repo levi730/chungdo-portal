@@ -17,12 +17,12 @@ use Illuminate\Support\Collection;
  * the saved results, so a correction to a division corrects this list too.
  * Age is taken at the event's date, and comes from the birth date rather than a
  * division's name: boards are relabelled and can mix age groups.
+ *
+ * A win is a place from 1 to the event's winning_places. Ties share a place, so
+ * with three winning places two 3rds both win.
  */
 class ParticipationTrophies
 {
-    /** A place from 1 to this is a win. Ties share a place, so two 3rds both win. */
-    public const LAST_WINNING_PLACE = 4;
-
     public const MINI_PEE_WEE_MAX_AGE = 8;
 
     public const PEE_WEE_MAX_AGE = 11;
@@ -45,7 +45,7 @@ class ParticipationTrophies
 
         $saved = $completed->mapWithKeys(fn (DivisionResult $r) => ["{$r->event_division_version_id}:{$r->position}" => true]);
         $winners = $completed->flatMap->placements
-            ->where('place', '<=', self::LAST_WINNING_PLACE)
+            ->where('place', '<=', $event->winning_places)
             ->pluck('user_id', 'user_id');
         $given = ParticipationTrophy::where('event_id', $event->id)->pluck('event_registration_id')->flip();
 
