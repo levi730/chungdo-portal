@@ -44,6 +44,11 @@ Livewire tables for admin lists, some Inertia/Vue (the registration form).
 - One webhook URL (`/api/stripe/webhook`) serves every account; the controller
   tries each configured signing secret until one verifies.
 - Neither existing payment flow has a reconcile sweep. Any new flow ships one.
+- **Production's queue is `database`** (it was `sync` until 2026-11-06, which left
+  every worker idle). Supervisor runs workers for `sendportal-message-dispatch`,
+  `sendportal-webhook-process` and `zulip` only. Nothing serves `default`, so a job
+  sent there waits forever: name a queue, or add a worker first. Code changes reach
+  the workers only after `php artisan queue:restart`.
 - The Zulip sync treats the portal as canonical and **removes** as well as adds.
   Dry-run first.
 - **Production (kronos, `/www/chungdo.org/www`) runs with a cached route
@@ -368,11 +373,11 @@ asked to see a map.
 
 ## Tournament results
 
-Branch `feature/tournament-results`, **not merged or deployed**. A scorer records
+A scorer records
 placements at `/event/{slug}/scoring` (`App\Livewire\Event\Scoring`), and
 `/event/{slug}/results` (`App\Livewire\Event\Results`) shows them, polling
-every 30 seconds. `App\Services\DivisionResults` holds the rules. Still to come:
-parent email, Facebook.
+every 30 seconds. `App\Services\DivisionResults` holds the rules. Results go to
+the public page and Zulip. There is no Facebook posting: decided 2026-11-06.
 
 - **Scoring reads the published version, never `event_divisions`.** That is what
   the cards were printed from, and saving the board can't touch it. A version's
@@ -394,7 +399,7 @@ parent email, Facebook.
 - **`DivisionPlacement::displayName()` is the one place names are decided.**
   It returns full names because the first run is a demonstration; the
   association has not settled how minors are named. Anything that publishes a
-  result (including Facebook) must go through it.
+  result must go through it.
 - **The results page is public**, with full names, for anyone with the link. It
   is outside the `auth`+`verified` group and marked noindex; there is no switch,
   so a division appears the moment it is saved. Members reach it from the event
@@ -421,17 +426,14 @@ parent email, Facebook.
   Zulip's message edit time limit.
 - `PostResultToZulip` is registered in `AppServiceProvider`, not discovered from
   `app/Listeners`, so a stale event cache in production can't drop it. It runs on
-  the `zulip` queue, which the `chungdo-sp-zulip-sync` worker on kronos serves one
-  job at a time, so a running sync delays results. Locally, nothing runs the queue:
-  `ddev exec php artisan queue:work --queue=zulip --stop-when-empty`.
+  the `zulip` queue, which the `chungdo-zulip-sync` worker on kronos serves one job
+  at a time, so a running sync delays results by its few seconds. Locally, nothing
+  runs the queue: `ddev exec php artisan queue:work --queue=zulip --stop-when-empty`.
 - A saved division is closed. Reopening needs `event.manage` and takes it off
   the results page until it is saved again.
 - **`event.recordResults`** is held by `event.admin`, the coordinator allowlist
   and a one-permission `event.scorer` role. The Scoring link is in the admin
-  subnav. Deploying needs `php artisan migrate`,
-  `db:seed --class=PermissionSeeder`, `route:cache` and `queue:restart`, since the
-  workers keep the old code until they restart. Run on local dev and test
-  databases only.
+  subnav.
 
 ## Testing
 

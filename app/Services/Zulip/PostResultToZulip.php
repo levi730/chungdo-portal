@@ -29,7 +29,7 @@ class PostResultToZulip implements ShouldQueue
 
     public function __construct(private ResultsChannel $channel) {}
 
-    /** The worker on kronos for this queue is chungdo-sp-zulip-sync. */
+    /** The worker on kronos for this queue is chungdo-zulip-sync. */
     public function viaQueue(): string
     {
         return 'zulip';

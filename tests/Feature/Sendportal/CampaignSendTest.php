@@ -2,7 +2,10 @@
 
 use App\Models\User;
 use App\Services\Sendportal\CreateMessages;
+use App\Services\Sendportal\MessageDispatchHandler;
 use Postmark\Models\PostmarkException;
+use Sendportal\Base\Events\MessageDispatchEvent;
+use Sendportal\Base\Listeners\MessageDispatchHandler as BaseMessageDispatchHandler;
 use Sendportal\Base\Models\Campaign;
 use Sendportal\Base\Models\Message;
 use Sendportal\Base\Models\Subscriber;
@@ -58,7 +61,7 @@ function inactiveRecipient(): PostmarkException
 {
     $e = new PostmarkException;
     $e->message = 'You tried to send to recipient(s) that have been marked as inactive.';
-    $e->setPostmarkApiErrorCode(CreateMessages::POSTMARK_INACTIVE_RECIPIENT);
+    $e->setPostmarkApiErrorCode(MessageDispatchHandler::POSTMARK_INACTIVE_RECIPIENT);
 
     return $e;
 }
@@ -81,6 +84,26 @@ it('keeps sending past a recipient Postmark refuses, and unsubscribes them as a 
     expect(Message::where('source_id', $campaign->id)->where('subscriber_id', $bad->id)->value('sent_at'))->toBeNull();
     expect($bad->fresh()->unsubscribed_at)->not->toBeNull();
     expect($bad->fresh()->unsubscribe_event_id)->toBe(UnsubscribeEventType::BOUNCE);
+});
+
+it('unsubscribes an inactive recipient on the worker, where a queued send fails', function () {
+    $bad = testSubscriber('worker-suppressed@example.com');
+    $message = (new Message)->forceFill(['subscriber_id' => $bad->id]);
+    test()->mock(DispatchMessage::class)->shouldReceive('handle')->andThrow(inactiveRecipient());
+
+    app(BaseMessageDispatchHandler::class)->handle(new MessageDispatchEvent($message));
+
+    expect($bad->fresh()->unsubscribe_event_id)->toBe(UnsubscribeEventType::BOUNCE);
+});
+
+it('lets any other failure fail the job, so it reaches failed_jobs', function () {
+    $flaky = testSubscriber('worker-flaky@example.com');
+    $message = (new Message)->forceFill(['subscriber_id' => $flaky->id]);
+    test()->mock(DispatchMessage::class)->shouldReceive('handle')->andThrow(new RuntimeException('connection reset'));
+
+    expect(fn () => app(BaseMessageDispatchHandler::class)->handle(new MessageDispatchEvent($message)))
+        ->toThrow(RuntimeException::class);
+    expect($flaky->fresh()->unsubscribed_at)->toBeNull();
 });
 
 it('keeps sending past any other failure but leaves that subscriber subscribed', function () {

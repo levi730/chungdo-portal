@@ -45,6 +45,12 @@ class AppServiceProvider extends ServiceProvider
             \Sendportal\Base\Pipelines\Campaigns\CreateMessages::class,
             \App\Services\Sendportal\CreateMessages::class,
         );
+
+        // Unsubscribes a recipient Postmark will never accept.
+        $this->app->bind(
+            \Sendportal\Base\Listeners\MessageDispatchHandler::class,
+            \App\Services\Sendportal\MessageDispatchHandler::class,
+        );
     }
 
     /**
