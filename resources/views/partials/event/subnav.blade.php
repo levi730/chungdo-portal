@@ -76,19 +76,22 @@
                     </li>
                     @endcan
                     @can('event.recordResults')
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.scoring', $event->slug) }}">Scoring</a>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="resultsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Results
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="resultsDropdown">
+                                <li><a class="dropdown-item" href="{{ route('event.results', $event->slug) }}">Results Page</a></li>
+                                <li><a class="dropdown-item" href="{{ route('event.scoring', $event->slug) }}">Scoring</a></li>
+                                <li><a class="dropdown-item" href="{{ route('event.trophies', $event->slug) }}">Participation Trophies</a></li>
+                                <li><a class="dropdown-item" href="{{ route('event.awards', $event->slug) }}">Awards Sheet</a></li>
+                            </ul>
                         </li>
+                    @else
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.trophies', $event->slug) }}">Trophies</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.awards', $event->slug) }}">Awards</a>
+                            <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>
                         </li>
                     @endcan
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>
-                    </li>
                     @can('event.reorganizeDivisions')
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.arrange-divisions', $event->slug) }}">Arrange Divisions</a>

@@ -138,3 +138,23 @@ it('renders the sheet behind event.recordResults', function () {
         ->assertOk()
         ->assertSeeInOrder(['Forms: 1st place', 'Forms A', 'Sparring', 'Finals Div', 'waiting on finals', 'Participation trophies (1)']);
 });
+
+it('groups the results links in a menu for scorers and keeps a plain link for everyone else', function () {
+    $event = awardsEvent();
+
+    $this->actingAs(awardsStaff('event.recordResults'));
+    $menu = view('partials.event.subnav', ['event' => $event])->render();
+
+    expect($menu)->toContain('id="resultsDropdown"')
+        ->toContain('Results Page')
+        ->toContain(route('event.scoring', $event->slug))
+        ->toContain(route('event.trophies', $event->slug))
+        ->toContain(route('event.awards', $event->slug));
+
+    $this->actingAs(awardsStaff('event.checkIn'));
+    $menu = view('partials.event.subnav', ['event' => $event])->render();
+
+    expect($menu)->not->toContain('resultsDropdown')
+        ->not->toContain(route('event.scoring', $event->slug))
+        ->toContain(route('event.results', $event->slug));
+});
