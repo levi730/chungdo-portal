@@ -158,3 +158,32 @@ it('groups the results links in a menu for scorers and keeps a plain link for ev
         ->not->toContain(route('event.scoring', $event->slug))
         ->toContain(route('event.results', $event->slug));
 });
+
+it('puts money and organizing under their own menus, each only for who may use them', function () {
+    $event = awardsEvent();
+    $menu = function (string ...$permissions) use ($event) {
+        $this->actingAs(awardsStaff(...$permissions));
+
+        return view('partials.event.subnav', ['event' => $event])->render();
+    };
+
+    $all = $menu('event.viewAllSchoolRegistrants', 'event.approveRefunds', 'event.checkIn', 'event.reorganizeDivisions');
+    expect($all)->toContain('id="moneyDropdown"')->toContain('id="organizationDropdown"')
+        ->toContain(e(route('cash.remittances', ['event' => $event->id, 'status' => 'all'])))
+        ->toContain(route('event.refund-requests', $event->slug))
+        ->toContain(route('event.financials-spreadsheet', $event->slug))
+        ->toContain(route('event.print-regs', $event->slug))
+        ->toContain(route('event.check-in', $event->slug))
+        ->toContain(route('event.arrange-divisions', $event->slug));
+
+    $door = $menu('event.checkIn');
+    expect($door)->not->toContain('moneyDropdown')->toContain('organizationDropdown')
+        ->toContain(route('event.check-in', $event->slug))
+        ->not->toContain(route('event.print-regs', $event->slug))
+        ->not->toContain(route('event.arrange-divisions', $event->slug));
+
+    $refunds = $menu('event.approveRefunds', 'event.checkIn'); // the whole menu needs one of the subnav's own three
+    expect($refunds)->toContain('moneyDropdown')
+        ->toContain(route('event.refund-requests', $event->slug))
+        ->not->toContain(e(route('cash.remittances', ['event' => $event->id, 'status' => 'all'])));
+});

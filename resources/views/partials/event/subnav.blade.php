@@ -35,46 +35,84 @@
                             <li><a class="dropdown-item" href="{{ route('event.reg-spreadsheet', $event->slug) }}">Download Registrant Spreadsheet</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="cashDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Cash/Check
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="cashDropdown">
-                            @can('create', [\App\Models\CashRemittance::class, $event])
-                                <li><a class="dropdown-item" href="{{ route('cash.register', $event->slug) }}">Register students paying cash/check</a></li>
-                            @endcan
-                            <li><a class="dropdown-item" href="{{ route('cash.remittances', ['event' => $event->id, 'status' => 'all']) }}">Remittances for this event</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="regCardsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Registration Cards
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="regCardsDropdown">
-                            @if($event->isCompetition())
-                                @if($event->hasForms())
-                                    <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=forms" target="_blank">Print Forms Cards</a></li>
-                                @endif
-                                @if($event->hasSparring())
-                                    <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=sparring" target="_blank">Print Sparring Cards</a></li>
-                                @endif
-                                @if($event->hasForms() && $event->hasSparring())
-                                    <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=both" target="_blank">Print Both Cards</a></li>
-                                @endif
-                                <li><hr class="dropdown-divider"></li>
-                                @if($event->hasForms())
-                                    <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=forms&blanks=1" target="_blank">Print Blank Forms Card</a></li>
-                                @endif
-                                @if($event->hasSparring())
-                                    <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=sparring&blanks=1" target="_blank">Print Blank Sparring Card</a></li>
-                                @endif
-                            @else
-                                <li><a class="dropdown-item" href="{{ route('event.print-regs', $event->slug) }}" target="_blank">Print Registration Cards</a></li>
-                                <li><a class="dropdown-item" href="{{ route('event.print-regs', $event->slug) }}?blanks=1" target="_blank">Print Blank Registration Card</a></li>
-                            @endif
-                        </ul>
-                    </li>
                     @endcan
+                    @php($pendingRefunds = auth()->user()?->can('event.approveRefunds')
+                        ? \App\Models\AddonChangeRequest::where('event_id', $event->id)->where('status', 'pending')->count()
+                        : 0)
+                    @canany(['event.viewAllSchoolRegistrants', 'event.approveRefunds'])
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="moneyDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Money
+                                @if($pendingRefunds > 0)
+                                    <span class="badge bg-red text-white ms-1">{{ $pendingRefunds }}</span>
+                                @endif
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="moneyDropdown">
+                                @can('event.viewAllSchoolRegistrants')
+                                    <li><h6 class="dropdown-header">Cash/Check</h6></li>
+                                    @can('create', [\App\Models\CashRemittance::class, $event])
+                                        <li><a class="dropdown-item" href="{{ route('cash.register', $event->slug) }}">Register students paying cash/check</a></li>
+                                    @endcan
+                                    <li><a class="dropdown-item" href="{{ route('cash.remittances', ['event' => $event->id, 'status' => 'all']) }}">Remittances for this event</a></li>
+                                @endcan
+                                @can('event.approveRefunds')
+                                    @can('event.viewAllSchoolRegistrants')
+                                        <li><hr class="dropdown-divider"></li>
+                                    @endcan
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('event.refund-requests', $event->slug) }}">
+                                            Refund Requests
+                                            @if($pendingRefunds > 0)
+                                                <span class="badge bg-red text-white ms-1">{{ $pendingRefunds }}</span>
+                                            @endif
+                                        </a>
+                                    </li>
+                                    <li><a class="dropdown-item" href="{{ route('event.financials-spreadsheet', $event->slug) }}">Download Financials</a></li>
+                                @endcan
+                            </ul>
+                        </li>
+                    @endcanany
+                    @canany(['event.viewAllSchoolRegistrants', 'event.checkIn', 'event.reorganizeDivisions'])
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="organizationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Organization
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="organizationDropdown">
+                                @can('event.viewAllSchoolRegistrants')
+                                    <li><h6 class="dropdown-header">Registration Cards</h6></li>
+                                @if($event->isCompetition())
+                                    @if($event->hasForms())
+                                        <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=forms" target="_blank">Print Forms Cards</a></li>
+                                    @endif
+                                    @if($event->hasSparring())
+                                        <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=sparring" target="_blank">Print Sparring Cards</a></li>
+                                    @endif
+                                    @if($event->hasForms() && $event->hasSparring())
+                                        <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=both" target="_blank">Print Both Cards</a></li>
+                                    @endif
+                                    <li><hr class="dropdown-divider"></li>
+                                    @if($event->hasForms())
+                                        <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=forms&blanks=1" target="_blank">Print Blank Forms Card</a></li>
+                                    @endif
+                                    @if($event->hasSparring())
+                                        <li><a class="dropdown-item" href="{{ route('event.print-tournament-cards', $event->slug) }}?variant=sparring&blanks=1" target="_blank">Print Blank Sparring Card</a></li>
+                                    @endif
+                                @else
+                                    <li><a class="dropdown-item" href="{{ route('event.print-regs', $event->slug) }}" target="_blank">Print Registration Cards</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('event.print-regs', $event->slug) }}?blanks=1" target="_blank">Print Blank Registration Card</a></li>
+                                @endif
+
+                                    <li><hr class="dropdown-divider"></li>
+                                @endcan
+                                @can('event.checkIn')
+                                    <li><a class="dropdown-item" href="{{ route('event.check-in', $event->slug) }}">Registrant Check-In</a></li>
+                                @endcan
+                                @can('event.reorganizeDivisions')
+                                    <li><a class="dropdown-item" href="{{ route('event.arrange-divisions', $event->slug) }}">Arrange Divisions</a></li>
+                                @endcan
+                            </ul>
+                        </li>
+                    @endcanany
                     @can('event.recordResults')
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="resultsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -92,11 +130,6 @@
                             <a class="nav-link" href="{{ route('event.results', $event->slug) }}">Results</a>
                         </li>
                     @endcan
-                    @can('event.reorganizeDivisions')
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.arrange-divisions', $event->slug) }}">Arrange Divisions</a>
-                        </li>
-                    @endcan
                     @can('event.manage')
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('events.edit', $event) }}">Manage Event</a>
@@ -105,28 +138,6 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('event.addons', $event->slug) }}">Manage Add-ons</a>
                         </li>
-                    @endcan
-                    @can('event.approveRefunds')
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.financials-spreadsheet', $event->slug) }}">Download Financials</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.refund-requests', $event->slug) }}">
-                                Refund Requests
-                                @php($pendingRefunds = \App\Models\AddonChangeRequest::where('event_id', $event->id)->where('status', 'pending')->count())
-                                @if($pendingRefunds > 0)
-                                    <span class="badge bg-red text-white ms-1">{{ $pendingRefunds }}</span>
-                                @endif
-                            </a>
-                        </li>
-                    @endcan
-                    @can('event.checkIn')
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.check-in', $event->slug) }}">Registrant Check-In</a>
-                        </li>
-                        {{--<li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.admin', $event->slug) }}">Event Admin</a>
-                        </li>--}}
                     @endcan
                 </ul>
             </div>
