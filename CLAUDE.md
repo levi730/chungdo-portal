@@ -17,6 +17,9 @@ Livewire tables for admin lists, some Inertia/Vue (the registration form).
   kept (the transactions, model, migration, exports and report routes are
   financial records).
 - `docs/zulip-13-oidc-sync.md` — Zulip/OIDC sync.
+- `docs/tournament-day-design.md` — running a tournament from the portal:
+  rings, an offline venue box, the command-log sync, brackets, trophies. The
+  handoff for that build; nothing in it exists in code yet (2026-11-09).
 
 ## Things that are easy to get wrong
 
