@@ -20,6 +20,10 @@ Livewire tables for admin lists, some Inertia/Vue (the registration form).
 - `docs/tournament-day-design.md` — running a tournament from the portal:
   rings, an offline venue box, the command-log sync, brackets, trophies. The
   handoff for that build; nothing in it exists in code yet (2026-11-09).
+- `docs/venue-app-design.md` — the alternative under consideration
+  (2026-11-10): a separate app at the venue that loads a pack, runs the day
+  offline, and sends the portal commands live or as a file. Keeps the portal
+  half of Phase 2 and takes over Phases 3–4. Nothing built; undecided.
 
 ## Things that are easy to get wrong
 
