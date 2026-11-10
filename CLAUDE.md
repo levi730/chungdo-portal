@@ -121,6 +121,15 @@ wherever a person sees it (`store.name`, `STORE_NAME`) and lives at `/gear`
 and `/admin/gear/…` (since 2026-11-03; `/store` and `/store/{slug}` redirect
 permanently). Route *names*, permissions and code still say `store`.
 
+**Product photos can be tagged with the item they show** (2026-11-09): the
+`item` custom property on the media row, set from a select under each image on
+the product edit page (`products.media.item`), holding a value of the first
+option axis (`Product::itemValues()`). The storefront prints it on the photo,
+and the gallery and the variant picker keep each other in step through two
+window events, `gear-item` and `gear-photo`: choosing an item shows its photo
+and dims the others, tapping a tagged photo chooses that item. An untagged
+photo shows every item and is never dimmed.
+
 Decided: charges go to the **association** account, and **tax stays at 0**
 (2026-09-01). `product_orders.tax` exists and `total = subtotal + tax`, so
 turning it on is a config change rather than a migration over rows holding

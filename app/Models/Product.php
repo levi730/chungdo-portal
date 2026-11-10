@@ -83,6 +83,33 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
         $this->addMediaCollection('product-images');
     }
 
+    /**
+     * The values of the first option axis ("Item": Adult Hoodie, Youth Hoodie,
+     * Gym Bag...) across every run, in variant order. A photo can be tagged
+     * with one of these so the storefront can say which item it shows.
+     *
+     * @return array<int, string>
+     */
+    public function itemValues(): array
+    {
+        $axis = $this->option_names[0] ?? null;
+
+        if ($axis === null) {
+            return [];
+        }
+
+        return $this->variants()
+            ->orderBy('product_runs.sort_order')
+            ->orderBy('product_variants.sort_order')
+            ->orderBy('product_variants.id')
+            ->get()
+            ->map(fn (ProductVariant $v) => $v->options[$axis] ?? null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /** The image the store card and the product hero use, if any. */
     public function image(): ?Media
     {

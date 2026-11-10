@@ -38,10 +38,21 @@
         },
 
         // Clear anything downstream when an upstream axis changes, so a stale
-        // size can't survive switching item.
+        // size can't survive switching item. Choosing on the first axis (the
+        // item) tells the gallery, which shows that item's photo and dims the
+        // rest.
         choose(axis, value) {
             this.chosen[axis] = value;
             this.axes.slice(this.axes.indexOf(axis) + 1).forEach(a => delete this.chosen[a]);
+            if (axis === this.axes[0]) this.$dispatch('gear-item', value || null);
+        },
+
+        // A tagged photo was tapped in the gallery: choose that item here, if
+        // it is on sale in this run.
+        pickFromPhoto(item) {
+            const axis = this.axes[0];
+            if (!axis || this.chosen[axis] === item || !this.valuesFor(axis).includes(item)) return;
+            this.choose(axis, item);
         },
 
         get match() {
@@ -54,7 +65,8 @@
         get price() {
             return this.match ? '$' + this.match.price.toFixed(2) : null;
         },
-     }">
+     }"
+     @gear-photo.window="pickFromPhoto($event.detail)">
 
     <form method="POST" action="{{ route('store.cart.add') }}">
         @csrf

@@ -6,6 +6,7 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Product;
 use App\Services\Stripe\StripeAccounts;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Admin CRUD for the merchandise store — step 2 of docs/store-design.md.
@@ -99,6 +100,29 @@ class ProductAdminController extends Controller
         $media->save();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Tag a product image with the item it shows (a value of the first option
+     * axis), or clear the tag. The storefront labels the photo with it and
+     * dims the others once a buyer has chosen an item.
+     */
+    public function setMediaItem(Request $request, Product $product, $mediaId)
+    {
+        $media = $product->media()->findOrFail($mediaId);
+
+        $data = $request->validate([
+            'item' => ['nullable', 'string', Rule::in($product->itemValues())],
+        ]);
+
+        if (filled($data['item'] ?? null)) {
+            $media->setCustomProperty('item', $data['item']);
+        } else {
+            $media->forgetCustomProperty('item');
+        }
+        $media->save();
+
+        return back()->with('success', 'Image label saved.');
     }
 
     /* ------------------------------------------------------------------ *

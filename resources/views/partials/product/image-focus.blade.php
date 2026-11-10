@@ -9,7 +9,15 @@
         'focusX' => (float) ($m->getCustomProperty('focusX') ?? 50),
         'focusY' => (float) ($m->getCustomProperty('focusY') ?? 50),
         'zoom' => (float) ($m->getCustomProperty('focusZoom') ?? 1),
+        'item' => $m->getCustomProperty('item'),
     ])->values()->all();
+    // The items a photo can be labelled with. A tag whose item has since been
+    // renamed out of the runs is kept in the list so it is visible, not lost.
+    $itemValues = $product->itemValues();
+    $itemOptions = collect($itemValues)
+        ->merge(collect($productImages)->pluck('item')->filter())
+        ->unique()->values()->all();
+    $itemBase = Str::beforeLast(route('products.media.item', [$product, 0]), '/0/item');
 @endphp
 
 <div class="d-flex flex-wrap gap-3 mt-2"
@@ -32,6 +40,18 @@
                 <img :src="img.url"
                      :style="`width:100%;height:100%;object-fit:cover;object-position:${img.focusX}% ${img.focusY}%;transform:scale(${img.zoom});transform-origin:${img.focusX}% ${img.focusY}%`">
             </div>
+            {{-- Which item the photo shows. Labels it on the product page and
+                 lets the gallery dim the other items once one is chosen. --}}
+            <form :action="`{{ $itemBase }}/${img.id}/item`" method="POST" class="mt-1">
+                <input type="hidden" name="_token" :value="csrf">
+                <select name="item" class="form-select form-select-sm" style="width:110px" title="Which item this photo shows"
+                        onchange="this.form.submit()">
+                    <option value="" :selected="!img.item">All items</option>
+                    @foreach($itemOptions as $value)
+                        <option value="{{ $value }}" :selected="img.item === @js($value)">{{ $value }}</option>
+                    @endforeach
+                </select>
+            </form>
             <div class="d-flex justify-content-center gap-2 mt-1">
                 <button type="button" class="btn btn-sm btn-link p-0" @click="edit(img)">Adjust crop</button>
                 <form :action="`${mediaBase}/${img.id}`" method="POST" class="d-inline"

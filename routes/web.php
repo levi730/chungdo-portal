@@ -160,6 +160,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/admin/gear/products/{id}/restore', [\App\Http\Controllers\ProductAdminController::class, 'restore'])->name('products.restore');
     Route::delete('/admin/gear/products/{product}/media/{media}', [\App\Http\Controllers\ProductAdminController::class, 'deleteMedia'])->name('products.media.delete');
     Route::post('/admin/gear/products/{product}/media/{media}/focus', [\App\Http\Controllers\ProductAdminController::class, 'setMediaFocus'])->name('products.media.focus');
+    Route::post('/admin/gear/products/{product}/media/{media}/item', [\App\Http\Controllers\ProductAdminController::class, 'setMediaItem'])->name('products.media.item');
 
     // Print runs, and the variants on sale during each
     Route::get('/admin/gear/products/{product}/runs/create', [\App\Http\Controllers\ProductRunController::class, 'create'])->name('products.runs.create');

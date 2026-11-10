@@ -6,6 +6,8 @@ use App\Models\ProductOrderItem;
 use App\Models\ProductRun;
 use App\Models\ProductVariant;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -286,4 +288,57 @@ it('reaches the design from a variant through its run', function () {
 
     expect($variant->product->id)->toBe($product->id)
         ->and($variant->run->id)->toBe($run->id);
+});
+
+/* -------------------------------------------------------------------- *
+ * Image labels
+ * -------------------------------------------------------------------- */
+
+it('lists the first axis values as the items a photo can show', function () {
+    $product = Product::create(['name' => 'Oath', 'slug' => 'oath', 'status' => Product::STATUS_ACTIVE, 'stripe_account' => 'association', 'option_names' => ['Item', 'Size']]);
+    $run = $product->runs()->create(['name' => 'Run 1']);
+    foreach ([['Adult Hoodie', 'M'], ['Adult Hoodie', 'L'], ['Youth Hoodie', 'S']] as $i => [$item, $size]) {
+        $run->variants()->create(['name' => "$item / $size", 'options' => ['Item' => $item, 'Size' => $size], 'price' => 30, 'enabled' => true, 'sort_order' => $i]);
+    }
+    $run->variants()->create(['name' => 'Gym Bag', 'options' => ['Item' => 'Gym Bag'], 'price' => 25, 'enabled' => true, 'sort_order' => 9]);
+
+    expect($product->itemValues())->toBe(['Adult Hoodie', 'Youth Hoodie', 'Gym Bag']);
+});
+
+it('tags a product image with the item it shows, and clears it again', function () {
+    Storage::fake(config('media-library.disk_name'));
+
+    $product = Product::create(['name' => 'Oath', 'slug' => 'oath', 'status' => Product::STATUS_ACTIVE, 'stripe_account' => 'association', 'option_names' => ['Item', 'Size']]);
+    $product->runs()->create(['name' => 'Run 1'])->variants()->create(['name' => 'Youth Hoodie / S', 'options' => ['Item' => 'Youth Hoodie', 'Size' => 'S'], 'price' => 30, 'enabled' => true]);
+    $media = $product->addMedia(UploadedFile::fake()->image('youth.jpg', 800, 800))->toMediaCollection('product-images');
+
+    $this->actingAs(storeManager())
+        ->post(route('products.media.item', [$product, $media]), ['item' => 'Youth Hoodie'])
+        ->assertRedirect();
+    expect($media->fresh()->getCustomProperty('item'))->toBe('Youth Hoodie');
+
+    // The edit page offers the tag under each image.
+    $this->actingAs(storeManager())
+        ->get(route('products.edit', $product))
+        ->assertOk()
+        ->assertSee('All items')
+        // The action is built per image in Alpine: base + id + /item.
+        ->assertSee('/admin/gear/products/'.$product->id.'/media/${img.id}/item', false);
+
+    // Only an item the product actually has.
+    $this->actingAs(storeManager())
+        ->from(route('products.edit', $product))
+        ->post(route('products.media.item', [$product, $media]), ['item' => 'Adult Hoodie'])
+        ->assertSessionHasErrors('item');
+    expect($media->fresh()->getCustomProperty('item'))->toBe('Youth Hoodie');
+
+    $this->actingAs(storeManager())
+        ->post(route('products.media.item', [$product, $media]), ['item' => ''])
+        ->assertRedirect();
+    expect($media->fresh()->getCustomProperty('item'))->toBeNull();
+
+    // Not for someone without store.manage.
+    $this->actingAs(plainUser())
+        ->post(route('products.media.item', [$product, $media]), ['item' => 'Youth Hoodie'])
+        ->assertForbidden();
 });
