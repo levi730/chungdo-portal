@@ -165,26 +165,34 @@ it('puts every image in the gallery strip, including the first', function () {
     expect(substr_count($response->getContent(), 'w=2000'))->toBe(3);
 });
 
-it('labels a photo with the item it shows and hands the tag to the gallery', function () {
+it('labels a photo with the items it shows and hands the tag to the gallery', function () {
     // A buyer scrolling to the youth hoodie could not tell which photo was
-    // which. A photo tagged in the admin carries its item into the gallery
-    // JSON, and the picker and gallery talk through the gear-item event.
+    // which. A photo tagged in the admin carries its items into the gallery
+    // JSON, and the picker and gallery talk through the gear-item event. One
+    // photo can show several items: the two t-shirts look the same.
     Storage::fake(config('media-library.disk_name'));
 
     $product = shopProduct();
+    shopVariant($product, ['name' => 'Adult T-Shirt / M', 'options' => ['Item' => 'Adult T-Shirt', 'Size' => 'M']]);
+    shopVariant($product, ['name' => 'Youth T-Shirt / M', 'options' => ['Item' => 'Youth T-Shirt', 'Size' => 'M']]);
     shopVariant($product, ['name' => 'Adult Hoodie / M', 'options' => ['Item' => 'Adult Hoodie', 'Size' => 'M']]);
-    shopVariant($product, ['name' => 'Youth Hoodie / M', 'options' => ['Item' => 'Youth Hoodie', 'Size' => 'M']]);
 
-    $adult = $product->addMedia(UploadedFile::fake()->image('adult.jpg', 800, 800))->toMediaCollection('product-images');
-    $adult->setCustomProperty('item', 'Adult Hoodie')->save();
-    $product->addMedia(UploadedFile::fake()->image('youth.jpg', 800, 800))->toMediaCollection('product-images');
+    $shirts = $product->addMedia(UploadedFile::fake()->image('shirts.jpg', 800, 800))->toMediaCollection('product-images');
+    $shirts->setCustomProperty('items', ['Adult T-Shirt', 'Youth T-Shirt'])->save();
+    // The single-item tag an earlier version stored still reads.
+    $hoodie = $product->addMedia(UploadedFile::fake()->image('hoodie.jpg', 800, 800))->toMediaCollection('product-images');
+    $hoodie->setCustomProperty('item', 'Adult Hoodie')->save();
+    $product->addMedia(UploadedFile::fake()->image('any.jpg', 800, 800))->toMediaCollection('product-images');
 
     $response = $this->get(route('store.show', $product->slug));
 
     $response->assertOk()
         // @js writes the JSON with \u0022 for quotes.
-        ->assertSee('\\u0022item\\u0022:\\u0022Adult Hoodie\\u0022', false)
-        ->assertSee('\\u0022item\\u0022:null', false)
+        ->assertSee('\\u0022items\\u0022:[\\u0022Adult T-Shirt\\u0022,\\u0022Youth T-Shirt\\u0022]', false)
+        // ...and non-ASCII as a JS escape inside the quoted JSON, hence \\u00b7.
+        ->assertSee('\\u0022label\\u0022:\\u0022Adult T-Shirt \\\\u00b7 Youth T-Shirt\\u0022', false)
+        ->assertSee('\\u0022items\\u0022:[\\u0022Adult Hoodie\\u0022]', false)
+        ->assertSee('\\u0022items\\u0022:[]', false)
         ->assertSee('gear-item', false)
         ->assertSee('gear-photo', false);
 });

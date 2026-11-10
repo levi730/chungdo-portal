@@ -110,6 +110,24 @@ class Product extends Model implements ChargedToStripeAccount, HasMedia
             ->all();
     }
 
+    /**
+     * The items a photo is tagged as showing: the `items` custom property, or
+     * the single `item` an earlier version stored. Empty means every item.
+     *
+     * @return array<int, string>
+     */
+    public static function imageItems(Media $media): array
+    {
+        $items = $media->getCustomProperty('items');
+
+        if (! is_array($items)) {
+            $single = $media->getCustomProperty('item');
+            $items = $single ? [$single] : [];
+        }
+
+        return array_values(array_filter(array_map('strval', $items)));
+    }
+
     /** The image the store card and the product hero use, if any. */
     public function image(): ?Media
     {

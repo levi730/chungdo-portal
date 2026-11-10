@@ -305,40 +305,47 @@ it('lists the first axis values as the items a photo can show', function () {
     expect($product->itemValues())->toBe(['Adult Hoodie', 'Youth Hoodie', 'Gym Bag']);
 });
 
-it('tags a product image with the item it shows, and clears it again', function () {
+it('tags a product image with the items it shows, and clears it again', function () {
     Storage::fake(config('media-library.disk_name'));
 
     $product = Product::create(['name' => 'Oath', 'slug' => 'oath', 'status' => Product::STATUS_ACTIVE, 'stripe_account' => 'association', 'option_names' => ['Item', 'Size']]);
-    $product->runs()->create(['name' => 'Run 1'])->variants()->create(['name' => 'Youth Hoodie / S', 'options' => ['Item' => 'Youth Hoodie', 'Size' => 'S'], 'price' => 30, 'enabled' => true]);
-    $media = $product->addMedia(UploadedFile::fake()->image('youth.jpg', 800, 800))->toMediaCollection('product-images');
+    $run = $product->runs()->create(['name' => 'Run 1']);
+    $run->variants()->create(['name' => 'Adult T-Shirt / S', 'options' => ['Item' => 'Adult T-Shirt', 'Size' => 'S'], 'price' => 20, 'enabled' => true]);
+    $run->variants()->create(['name' => 'Youth T-Shirt / S', 'options' => ['Item' => 'Youth T-Shirt', 'Size' => 'S'], 'price' => 20, 'enabled' => true]);
+    $media = $product->addMedia(UploadedFile::fake()->image('shirts.jpg', 800, 800))->toMediaCollection('product-images');
 
+    // One photo, both t-shirts.
     $this->actingAs(storeManager())
-        ->post(route('products.media.item', [$product, $media]), ['item' => 'Youth Hoodie'])
+        ->post(route('products.media.item', [$product, $media]), ['items' => ['Adult T-Shirt', 'Youth T-Shirt']])
         ->assertRedirect();
-    expect($media->fresh()->getCustomProperty('item'))->toBe('Youth Hoodie');
+    expect($media->fresh()->getCustomProperty('items'))->toBe(['Adult T-Shirt', 'Youth T-Shirt'])
+        ->and(Product::imageItems($media->fresh()))->toBe(['Adult T-Shirt', 'Youth T-Shirt']);
 
-    // The edit page offers the tag under each image.
+    // The edit page offers a tick per item under each image.
     $this->actingAs(storeManager())
         ->get(route('products.edit', $product))
         ->assertOk()
-        ->assertSee('All items')
+        ->assertSee('Shows all items')
+        ->assertSee('name="items[]" value="Youth T-Shirt"', false)
         // The action is built per image in Alpine: base + id + /item.
         ->assertSee('/admin/gear/products/'.$product->id.'/media/${img.id}/item', false);
 
-    // Only an item the product actually has.
+    // Only items the product actually has.
     $this->actingAs(storeManager())
         ->from(route('products.edit', $product))
-        ->post(route('products.media.item', [$product, $media]), ['item' => 'Adult Hoodie'])
-        ->assertSessionHasErrors('item');
-    expect($media->fresh()->getCustomProperty('item'))->toBe('Youth Hoodie');
+        ->post(route('products.media.item', [$product, $media]), ['items' => ['Adult Hoodie']])
+        ->assertSessionHasErrors('items.0');
+    expect($media->fresh()->getCustomProperty('items'))->toBe(['Adult T-Shirt', 'Youth T-Shirt']);
 
+    // Unticking everything clears the tag (the form sends an empty `items`).
     $this->actingAs(storeManager())
-        ->post(route('products.media.item', [$product, $media]), ['item' => ''])
+        ->post(route('products.media.item', [$product, $media]), ['items' => ''])
         ->assertRedirect();
-    expect($media->fresh()->getCustomProperty('item'))->toBeNull();
+    expect($media->fresh()->getCustomProperty('items'))->toBeNull()
+        ->and(Product::imageItems($media->fresh()))->toBe([]);
 
     // Not for someone without store.manage.
     $this->actingAs(plainUser())
-        ->post(route('products.media.item', [$product, $media]), ['item' => 'Youth Hoodie'])
+        ->post(route('products.media.item', [$product, $media]), ['items' => ['Youth T-Shirt']])
         ->assertForbidden();
 });

@@ -9,13 +9,13 @@
         'focusX' => (float) ($m->getCustomProperty('focusX') ?? 50),
         'focusY' => (float) ($m->getCustomProperty('focusY') ?? 50),
         'zoom' => (float) ($m->getCustomProperty('focusZoom') ?? 1),
-        'item' => $m->getCustomProperty('item'),
+        'items' => \App\Models\Product::imageItems($m),
     ])->values()->all();
     // The items a photo can be labelled with. A tag whose item has since been
     // renamed out of the runs is kept in the list so it is visible, not lost.
     $itemValues = $product->itemValues();
     $itemOptions = collect($itemValues)
-        ->merge(collect($productImages)->pluck('item')->filter())
+        ->merge(collect($productImages)->pluck('items')->flatten())
         ->unique()->values()->all();
     $itemBase = Str::beforeLast(route('products.media.item', [$product, 0]), '/0/item');
 @endphp
@@ -40,18 +40,24 @@
                 <img :src="img.url"
                      :style="`width:100%;height:100%;object-fit:cover;object-position:${img.focusX}% ${img.focusY}%;transform:scale(${img.zoom});transform-origin:${img.focusX}% ${img.focusY}%`">
             </div>
-            {{-- Which item the photo shows. Labels it on the product page and
-                 lets the gallery dim the other items once one is chosen. --}}
-            <form :action="`{{ $itemBase }}/${img.id}/item`" method="POST" class="mt-1">
-                <input type="hidden" name="_token" :value="csrf">
-                <select name="item" class="form-select form-select-sm" style="width:110px" title="Which item this photo shows"
-                        onchange="this.form.submit()">
-                    <option value="" :selected="!img.item">All items</option>
+            {{-- Which items the photo shows. Labels it on the product page and
+                 lets the gallery dim it once a buyer chooses something else. A
+                 photo may show several (the youth and adult t-shirts look the
+                 same); none ticked means it shows everything. Each tick saves. --}}
+            @if($itemOptions !== [])
+                <form :action="`{{ $itemBase }}/${img.id}/item`" method="POST" class="mt-1 text-start" style="width:110px">
+                    <input type="hidden" name="_token" :value="csrf">
+                    <input type="hidden" name="items" value="">
+                    <div class="small text-muted" x-show="!img.items.length">Shows all items</div>
                     @foreach($itemOptions as $value)
-                        <option value="{{ $value }}" :selected="img.item === @js($value)">{{ $value }}</option>
+                        <label class="form-check form-check-sm mb-0" style="min-height:0">
+                            <input type="checkbox" class="form-check-input" name="items[]" value="{{ $value }}"
+                                   :checked="img.items.includes(@js($value))" onchange="this.form.submit()">
+                            <span class="form-check-label small">{{ $value }}</span>
+                        </label>
                     @endforeach
-                </select>
-            </form>
+                </form>
+            @endif
             <div class="d-flex justify-content-center gap-2 mt-1">
                 <button type="button" class="btn btn-sm btn-link p-0" @click="edit(img)">Adjust crop</button>
                 <form :action="`${mediaBase}/${img.id}`" method="POST" class="d-inline"

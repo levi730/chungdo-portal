@@ -103,23 +103,29 @@ class ProductAdminController extends Controller
     }
 
     /**
-     * Tag a product image with the item it shows (a value of the first option
-     * axis), or clear the tag. The storefront labels the photo with it and
-     * dims the others once a buyer has chosen an item.
+     * Tag a product image with the items it shows (values of the first option
+     * axis), or clear the tag. One photo can show several items: the youth and
+     * adult t-shirts look the same, so there is one photo for both. The
+     * storefront labels the photo with them and dims it once a buyer has
+     * chosen an item it does not show.
      */
     public function setMediaItem(Request $request, Product $product, $mediaId)
     {
         $media = $product->media()->findOrFail($mediaId);
 
         $data = $request->validate([
-            'item' => ['nullable', 'string', Rule::in($product->itemValues())],
+            'items' => ['nullable', 'array'],
+            'items.*' => ['string', Rule::in($product->itemValues())],
         ]);
 
-        if (filled($data['item'] ?? null)) {
-            $media->setCustomProperty('item', $data['item']);
+        $items = array_values(array_unique($data['items'] ?? []));
+
+        if ($items !== []) {
+            $media->setCustomProperty('items', $items);
         } else {
-            $media->forgetCustomProperty('item');
+            $media->forgetCustomProperty('items');
         }
+        $media->forgetCustomProperty('item');
         $media->save();
 
         return back()->with('success', 'Image label saved.');
