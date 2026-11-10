@@ -452,7 +452,7 @@ portal's pages keep `event.manage`.
 ## Build order
 
 Each step is committed as it lands and has a "done when". The app is a new
-repository, `chungdo-venue`, with its own DDEV project for development and a
+repository, `chungdo-ring`, with its own DDEV project for development and a
 Pest suite; the rehearsal is that DDEV project pointed at `chungdo.ddev.site`
 on the Phase 2 branch, which is the two-project setup already worked out.
 
