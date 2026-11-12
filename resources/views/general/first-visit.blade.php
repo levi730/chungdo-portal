@@ -6,6 +6,7 @@
     <div class="card-body">
         <h2 class="mb-3 display-3 text-center">Welcome!</h2>
         <p class="text-center small mb-4"><a href="/login">Login</a> | <a href="/register">Register</a> </p>
+        <div class="mb-4">@include('partials.store.guest-callout')</div>
         <p class="intro-text">Welcome to the new information portal for the Chung Do Association!</p>
 
         <p class="intro-text mb-3">

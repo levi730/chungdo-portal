@@ -125,6 +125,12 @@ wherever a person sees it (`store.name`, `STORE_NAME`) and lives at `/gear`
 and `/admin/gear/…` (since 2026-11-03; `/store` and `/store/{slug}` redirect
 permanently). Route *names*, permissions and code still say `store`.
 
+**Guests find the store from the login and first-visit pages** (2026-11-11):
+`partials/store/guest-callout.blade.php`, a card linking to `/gear`. Those are
+where a signed-out visitor to chungdo.org lands. It shows only while
+`store.menu` is on **and** `Product::orderable()` returns something, so the
+same `STORE_MENU` switch that hides the nav item hides this card too.
+
 **Product photos can be tagged with the items they show** (2026-11-09): the
 `items` custom property on the media row, a list of values of the first option
 axis (`Product::itemValues()`), ticked under each image on the product edit
